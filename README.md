@@ -224,6 +224,7 @@ anti-boucle : 2 sauts max).
 | `POST /agent/task` · `/agent/task/{id}/validate` · `/agent/dispatch` | MCP + HITL |
 | `POST /whitelist/proposal` · `/approve` | approbation par le leader |
 | `POST /gateway/sync` · `/gateway/ask` | passerelle inter-essaims |
+| `GET /knowledge` | **savoir commun** : réponses VERIFIED partagées à tout l'essaim (count + digest) |
 | `GET /audit/verify` · `/audit/tail?n=` | chaîne de hachage |
 
 ## 8 bis. Publication Google Play
@@ -254,7 +255,15 @@ python3 -m unittest discover -s tests
 #    leader, vérifie la réélection (~8 s) et l'intégrité des chaînes.
 python3 tests/test_multi_emulator_swarm.py
 
-# 3) Boucle complète DANS Android (émulateur ou tablette USB) :
+# 3) Interop swarmknowledge + partage du savoir (« share all ») :
+#    vérifie le nœud OSP vivant sur 192.168.1.249, ancre une réponse sur
+#    son endpoint, et confirme que TOUTES les connaissances VERIFIED sont
+#    propagées à tous les nœuds (PC + émulateurs) — même digest partout,
+#    pare-feu, failover, audit. Déploiement distant si clé SSH :
+#    python3 tests/test_swarmknowledge_sharing.py --deploy-249 <user>
+python3 tests/test_swarmknowledge_sharing.py
+
+# 4) Boucle complète DANS Android (émulateur ou tablette USB) :
 cd android && ./gradlew connectedDebugAndroidTest
 ```
 
@@ -276,7 +285,14 @@ sement volatile bloqué par la porte LWW logique).
   par secret partagé (extension : HMAC par nœud via champ `secret` de la
   whitelist). Ne pas exposer l'essaim au-delà du Wi-Fi de confiance.
 
-## 10. OSP v0.6 — pare-feu anti-hallucination
+## 10. OSP v0.6 — pare-feu anti-hallucination et RAG distribué
+
+Toute réponse VERIFIED entre automatiquement dans le **savoir commun**
+(meta `knowledge:*` de l'état distribué, propagé à tous les nœuds par la
+fusion LWW — événement `knowledge_shared` scellé). `GET /knowledge` liste
+ce savoir commun ; interopérable avec l'écosystème swarmknowledge (les
+sources d'ancrage `osp://…` des nœuds OSP réels, p.ex.
+`192.168.1.249:3000/osp/endpoint.json`).
 
 Chaque réponse d'inférence reçoit un indice de véracité ancrée :
 `g` = valeur fournie par le modèle, sinon heuristique des sources citées

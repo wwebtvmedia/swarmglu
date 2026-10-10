@@ -168,6 +168,14 @@ def agent_task_validate_json(task_id: str, approved: bool, by: str = "") -> str:
 
 
 @_safe
+def knowledge_json() -> str:
+    """Le savoir commun de l'essaim (RAG distribué OSP v0.6)."""
+    node = _node_or_error()
+    _s, payload = node.h_knowledge({}, {}, [], {})
+    return json.dumps(payload, default=str)
+
+
+@_safe
 def whitelist_list_json() -> str:
     node = _node_or_error()
     return json.dumps({"nodes": node.security.nodes(),

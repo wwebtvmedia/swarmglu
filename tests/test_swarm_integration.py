@@ -221,6 +221,50 @@ class FédérationDeuxEssaims(unittest.TestCase):
                 n.stop()
 
 
+class PartageDeConnaissances(unittest.TestCase):
+    """RAG distribué OSP v0.6 : toute réponse VERIFIED devient savoir commun."""
+
+    def test_verifié_partagé_non_verifié_exclu(self):
+        n1 = nouveau_noeud("sav-a")
+        time.sleep(LEASE + 1.5)
+        n2 = nouveau_noeud("sav-b", peers=[n1.config.port])
+        try:
+            self.assertTrue(attendre(12, lambda: (
+                sum(1 for r, _l, _e in roles([n1, n2]).values() if r == "leader") == 1)))
+            url_b = "http://127.0.0.1:%d" % n2.config.port
+            url_a = "http://127.0.0.1:%d" % n1.config.port
+
+            # 1) réponse ancrée (sources OSP réelles) -> VERIFIED -> partagée
+            status, rep = http_json("POST", url_b + "/ask", {
+                "student_id": "eleve-1", "prompt": "Qu'est-ce que l'OSP ?",
+                "sources": ["osp://swarmknowledge/whatsapp-bot",
+                            "osp://192.168.1.249:3000/osp/endpoint.json"]}, timeout=30)
+            self.assertEqual(status, 200, rep)
+            self.assertTrue(rep["knowledge"]["shared"])
+            self.assertEqual(rep["osp"]["verdict"], "VERIFIED")
+
+            # 2) propagation au second nœud (fusion d'état, ≤ ~6 s)
+            ok = attendre(15, lambda: http_json(
+                "GET", url_a + "/knowledge")[1].get("count") == 1)
+            self.assertTrue(ok, "savoir non propagé vers sav-a")
+            _s, ka = http_json("GET", url_a + "/knowledge")
+            _s, kb = http_json("GET", url_b + "/knowledge")
+            self.assertEqual(ka["digest"], kb["digest"])       # même savoir
+            self.assertTrue(any(src.startswith("osp://swarmknowledge")
+                                for src in ka["entries"][0]["sources"]))
+
+            # 3) réponse NON sourcée -> pare-feu OSP -> EXCLUE du savoir
+            status, rep2 = http_json("POST", url_b + "/ask", {
+                "student_id": "eleve-2", "prompt": "Question sans sources ?",
+                "sources": []}, timeout=30)
+            self.assertEqual(rep2["osp"]["verdict"], "UNVERIFIED")
+            self.assertIsNone(rep2.get("knowledge"))
+            _s, kb2 = http_json("GET", url_b + "/knowledge")
+            self.assertEqual(kb2["count"], 1)                  # inchangé
+        finally:
+            n1.stop(); n2.stop()
+
+
 class ModeStrictEtRejoindre(unittest.TestCase):
     def test_nœud_strict_refuse_les_inconnus(self):
         n1 = nouveau_noeud("strict-1", allow_join=False)

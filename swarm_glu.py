@@ -46,7 +46,7 @@ from urllib.parse import parse_qs, urlparse
 
 from consensus import ConsensusConfig, ConsensusManager
 from gateway import SwarmGateway
-from security import SecurityManager, sha256_hex
+from security import SecurityManager, canonical_json, sha256_hex
 from state_manager import StateManager, SwarmSynchronizer
 
 log = logging.getLogger("swarmglu.server")
@@ -661,7 +661,11 @@ class SwarmNode:
             return 200, {
                 "answer": answer,
                 "model": model_hint or "mock-qwen-0.5b",
-                "sources": ["osp://local/djerba-wiki", "osp://local/manuel-svt"],
+                # Sources ancrées : celles transmises par la requête (p.ex.
+                # ancre OSP swarmknowledge 192.168.1.249:3000), sinon le
+                # corpus local de démonstration.
+                "sources": (body.get("sources") if body.get("sources") is not None
+                            else ["osp://local/djerba-wiki", "osp://local/manuel-svt"]),
                 "provider": self.node_id,
             }
 
@@ -785,6 +789,30 @@ class SwarmNode:
                 self.security.record_event(
                     "request_routed", body.get("student_id") or self.node_id,
                     payload, processing_time=elapsed, request_time=request_time)
+                # ----- RAG DISTRIBUÉ OSP v0.6 : « share all » -----
+                # Toute réponse VERIFIED (g >= 0.30) entre dans le savoir
+                # commun de l'essaim : stockée dans l'état distribué
+                # (meta, fusion LWW), elle se propage à TOUS les nœuds —
+                # PC comme tablettes/émulateurs — sans action supplémentaire.
+                partage = None
+                if osp["rag_eligible"]:
+                    cle = "knowledge:%s" % sha256_hex(body.get("prompt", ""))[:12]
+                    self.state.set_meta(cle, {
+                        "q_sha256": payload["prompt_sha256"],
+                        "student_id": body.get("student_id", ""),
+                        "sources": resp.get("sources", []),
+                        "groundedness": osp["groundedness"],
+                        "provider": pid,
+                        "model": resp.get("model", ""),
+                        "epoch": self.state.epoch,
+                        "ts": round(time.time(), 3),
+                    })
+                    partage = {"knowledge_key": cle,
+                               "shared": True}
+                    self.security.record_event(
+                        "knowledge_shared", body.get("student_id") or self.node_id,
+                        {"key": cle, "sources": resp.get("sources", []),
+                         "groundedness": osp["groundedness"], "provider": pid})
                 return 200, {
                     "answer": resp["answer"],
                     "model": resp.get("model", ""),
@@ -794,6 +822,7 @@ class SwarmNode:
                     "request_time": request_time,
                     "osp": osp,
                     "epoch": self.state.epoch,
+                    "knowledge": partage,   # null si pare-feu OSP refusé
                 }
             errors.append({"provider": pid, "status": status,
                            "error": (resp or {}).get("error", "échec")})
@@ -1025,6 +1054,23 @@ class SwarmNode:
                               "api_flavor": peer.get("api_flavor")})
         return 200, {"providers": providers}
 
+    def h_knowledge(self, body, headers, params, query):
+        """
+        GET /knowledge — le SAVOIR COMMUN de l'essaim (« share all ») :
+        toutes les réponses VERIFIED (OSP v0.6, g >= 0.30) partagées par
+        n'importe quel nœud, propagées à tous par la fusion d'état.
+        Le digest permet de vérifier d'un coup que tout le monde a TOUT.
+        """
+        entrees = sorted(
+            ({"key": cle, **val} for cle, val in self.state._doc["meta"].items()
+             if cle.startswith("knowledge:")),
+            key=lambda e: e.get("ts", 0), reverse=True)
+        return 200, {
+            "count": len(entrees),
+            "digest": sha256_hex(canonical_json(entrees)),
+            "entries": entrees[:100],
+        }
+
     def h_audit_verify(self, body, headers, params, query):
         return 200, self.security.verify_chain()
 
@@ -1061,6 +1107,7 @@ ROUTES: Dict[Tuple[str, str], str] = {
     ("GET", "/registry"): "h_registry",
     ("GET", "/state/digest"): "h_state_digest",
     ("GET", "/providers"): "h_providers",
+    ("GET", "/knowledge"): "h_knowledge",
     ("GET", "/tasks"): "h_tasks",
     ("GET", "/audit/verify"): "h_audit_verify",
     ("GET", "/audit/tail"): "h_audit_tail",
