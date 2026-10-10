@@ -147,11 +147,22 @@ class StateManager:
                 self._bump()
 
     def alive_peers(self, timeout: float = 9.0) -> List[Tuple[str, Dict[str, Any]]]:
-        """Pairs vus depuis moins de `timeout` secondes (soi-même inclus)."""
+        """
+        Pairs vus depuis moins de `timeout` secondes.
+
+        SOI-MÊME est toujours considéré vivant : la lenteur des ticks de
+        consensus (battements pendant 2 s sur le socket d'un leader qui
+        meurt) ne doit jamais faire expirer sa propre entrée — sinon le
+        nœud se refuse à lui-même comme fournisseur pendant la fenêtre
+        de basculement (bug réel observé : /ask 503 juste après failover).
+        """
         now = time.time()
         out = []
         with self._lock:
             for pid, peer in self._doc["peers"].items():
+                if pid == self.node_id and peer:
+                    out.append((pid, dict(peer)))
+                    continue
                 if peer.get("alive", False) and now - peer.get("last_seen", 0) <= timeout:
                     out.append((pid, dict(peer)))
         return out
@@ -275,7 +286,7 @@ class StateManager:
                 changes["leader"] = True
                 self._bump()
 
-            # 2) Registre des pairs : LWW
+            # 2) Registre des pairs : LWW logique + volatil toujours frais
             for pid, rpeer in (remote_doc.get("peers") or {}).items():
                 rlogical = {k: rpeer.get(k) for k in LOGICAL_PEER_FIELDS if k in rpeer}
                 lpeer = self._doc["peers"].get(pid)
@@ -292,23 +303,28 @@ class StateManager:
                     self._doc["peers"][pid] = entry
                     changes["peers"].append(pid)
                     self._bump()
-                elif self._peer_beats(lpeer, rpeer):
-                    merged = dict(lpeer)
-                    merged.update(rlogical)
-                    merged["writer"] = rpeer.get("writer", lpeer.get("writer"))
-                    merged["updated_at"] = rpeer.get("updated_at", lpeer.get("updated_at"))
-                    # Volatil : on garde la vue LA PLUS RÉCENTE (locale vs
-                    # distante) — la vue de l'émetteur est plus fraîche pour
-                    # les pairs qu'il observe directement (heartbeats).
-                    if (rpeer.get("last_seen") or 0) > (lpeer.get("last_seen") or 0):
-                        merged["last_seen"] = rpeer.get("last_seen")
-                        merged["alive"] = bool(rpeer.get("alive"))
-                    else:
-                        merged["last_seen"] = lpeer.get("last_seen", 0)
-                        merged["alive"] = lpeer.get("alive", False)
-                    self._doc["peers"][pid] = merged
-                    changes["peers"].append(pid)
-                    self._bump()
+                else:
+                    if self._peer_beats(lpeer, rpeer):
+                        merged = dict(lpeer)
+                        merged.update(rlogical)
+                        merged["writer"] = rpeer.get("writer", lpeer.get("writer"))
+                        merged["updated_at"] = rpeer.get("updated_at", lpeer.get("updated_at"))
+                        self._doc["peers"][pid] = merged
+                        changes["peers"].append(pid)
+                        self._bump()
+                    # VOLATIL INDEPENDANT du LWW logique : même si l'état
+                    # logique distant ne gagne pas (inchangé), la vivacité
+                    # plus récente DOIT être adoptée — sinon un registre
+                    # tiré du leader ne rafraîchit jamais les followers
+                    # entre eux (bug observé : alive_count figé à 2).
+                    # Silencieux : le volatil ne compte pas comme changement
+                    # logique (digest inchangé, pas d'événement d'audit).
+                    courante = self._doc["peers"][pid]
+                    if (rpeer.get("last_seen") or 0) > (courante.get("last_seen") or 0):
+                        rafraichie = dict(courante)
+                        rafraichie["last_seen"] = rpeer.get("last_seen")
+                        rafraichie["alive"] = bool(rpeer.get("alive"))
+                        self._doc["peers"][pid] = rafraichie
 
             # 3) Whitelist propagée : union
             r_nodes = remote_doc.get("whitelist_nodes") or []

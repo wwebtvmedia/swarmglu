@@ -74,6 +74,7 @@ class NodeConfig:
         neighbors: Optional[List[str]] = None,  # essaims voisins (ambassadeur)
         beacon_port: int = DEFAULT_BEACON_PORT,
         advertise_ip: str = "",
+        advertise_port: int = 0,   # port annoncé aux pairs (≠ port d'écoute : émulateurs adb)
         bind: str = "0.0.0.0",
         heartbeat_interval: float = 3.0,
         lease_timeout: float = 6.0,
@@ -98,6 +99,11 @@ class NodeConfig:
         self.neighbors = neighbors or []
         self.beacon_port = beacon_port
         self.advertise_ip = advertise_ip
+        # Port annoncé aux pairs : par défaut le port d'écoute. Distinct
+        # quand le nœud est joignable via un transfert (adb forward pour
+        # les émulateurs, NAT symétrique…) : on ÉCOUTE sur `port` mais on
+        # déclare `advertise_port` aux pairs.
+        self.advertise_port = advertise_port or port
         self.bind = bind
         self.heartbeat_interval = heartbeat_interval
         self.lease_timeout = lease_timeout
@@ -504,8 +510,10 @@ class SwarmNode:
         self.config = config
         self.node_id = config.node_id or "%s-%d" % (socket.gethostname(), config.port)
         ip = config.advertise_ip or detect_local_ip()
+        # Identité annoncée : ip/port PUBLICS (peuvent différer du port
+        # d'écoute — cf. advertise_port pour les émulateurs via adb forward).
         self.identity = {"node_id": self.node_id, "ip": ip,
-                         "port": config.port, "mode": config.mode}
+                         "port": config.advertise_port, "mode": config.mode}
 
         os.makedirs(config.data_dir, exist_ok=True)
         # La whitelist vit dans data_dir pour être copiable/échangeable.
@@ -548,7 +556,7 @@ class SwarmNode:
                                 ("mock" if config.mock_inference else None),
                                 base_url=config.gguf_url or None)
         self.state.update_peer(self.node_id, {
-            "ip": ip, "port": config.port, "mode": config.mode,
+            "ip": ip, "port": config.advertise_port, "mode": config.mode,
             "capabilities": capabilities, "models": models,
             "api_flavor": self.state._self_info.get("api_flavor"),
             "base_url": self.state._self_info.get("base_url"),
@@ -577,7 +585,7 @@ class SwarmNode:
     def start_services(self) -> None:
         self.security.record_event(
             "node_start", self.node_id,
-            {"ip": self.identity["ip"], "port": self.config.port,
+            {"ip": self.identity["ip"], "port": self.config.advertise_port,
              "mode": self.config.mode, "swarm_id": self.config.swarm_id,
              "capabilities": self.state.self_capabilities(),
              "models": self.state.self_models(),
@@ -830,7 +838,7 @@ class SwarmNode:
             })
         return 200, {
             "node_id": self.node_id,
-            "addr": "%s:%s" % (self.identity["ip"], self.config.port),
+            "addr": "%s:%s" % (self.identity["ip"], self.config.advertise_port),
             "swarm_id": self.config.swarm_id,
             "mode": self.config.mode,
             "consensus": c,

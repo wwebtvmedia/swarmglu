@@ -235,6 +235,34 @@ données » (aucune donnée collectée), classification 3+, visuels
 signature release (`android/keystore.properties` + keystore locaux, non
 versionnés). Build de l'AAB : `cd android && ./gradlew bundleRelease`.
 
+## 8 ter. Tests
+
+Trois niveaux de validation, tous exécutables en une commande :
+
+```bash
+# 1) Suite noyau (64 tests, < 25 s, sans réseau externe) :
+#    whitelist/chaîne de hachage (altération, suppression, réordonnancement),
+#    élection déterministe, baux et abdications, fusion LWW commutative,
+#    passerelle/garde anti-boucle, pare-feu OSP, + intégration en processus
+#    (élection, routage /ask, basculement après mort du leader, HITL,
+#    fédération de deux essaims).
+python3 -m unittest discover -s tests
+
+# 2) Essaim réel MULTI-ÉMULATEURS (2 Android + 1 PC, ~5 min) :
+#    crée et boote deux AVD, forme un essaim aux timings du cahier des
+#    charges (3 s/6 s), vérifie convergence, requête d'élève OSP, TUE le
+#    leader, vérifie la réélection (~8 s) et l'intégrité des chaînes.
+python3 tests/test_multi_emulator_swarm.py
+
+# 3) Boucle complète DANS Android (émulateur ou tablette USB) :
+cd android && ./gradlew connectedDebugAndroidTest
+```
+
+Ces suites ont déjà corrigé deux vrais bugs de production : le 503
+fournisseur pendant la fenêtre de basculement (soi-même doit toujours
+compter comme vivant) et le gel du compteur de pairs vivants (rafraîchis-
+sement volatile bloqué par la porte LWW logique).
+
 ## 9. Modèle de sécurité (et limites assumées du PoC)
 
 - **Participation** : whitelist pré-partagée hors-ligne (USB) ou
