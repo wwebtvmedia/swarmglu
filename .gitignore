@@ -26,6 +26,12 @@ android/.cxx/
 *.apk
 *.aab
 
+# Signature release Google Play (secrets — JAMAIS versionnés)
+android/keystore.properties
+android/*.keystore
+*.jks
+*.keystore
+
 # Divers
 .DS_Store
 *.log

@@ -1,8 +1,9 @@
 // SwarmGlu — build.gradle (racine)
-// Versions éprouvées : AGP 8.5 + Kotlin 1.9 + Chaquopy 15.
+// Chaîne validée pour Google Play (nouvelles apps : targetSdk 35 + pages 16 Ko) :
+//   AGP 8.7.3 · Gradle 8.9 · Kotlin 1.9 · Chaquopy 17 (AGP 7.3–9.2, Python 3.10–3.14)
 
 plugins {
-    id 'com.android.application' version '8.5.2' apply false
+    id 'com.android.application' version '8.7.3' apply false
     id 'org.jetbrains.kotlin.android' version '1.9.24' apply false
-    id 'com.chaquo.python' version '15.0.1' apply false
+    id 'com.chaquo.python' version '17.0.0' apply false
 }

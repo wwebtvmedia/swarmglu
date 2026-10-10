@@ -12,16 +12,30 @@ plugins {
     id 'com.chaquo.python'
 }
 
+// ---------------------------------------------------------------------------
+// Signature de release : lue depuis keystore.properties (NON versionné —
+// voir google-play/PLAY_CHECKLIST.md §Signature). Si le fichier est absent,
+// la clé debug est utilisée : assembleDebug et assembleRelease restent
+// fonctionnels, seul l'AAB non signé importable nulle part.
+// ---------------------------------------------------------------------------
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+
 android {
     namespace 'com.tree4five.swarmglu'
-    compileSdk 34
+    // targetSdk 35 : exigence Google Play pour toute NOUVELLE app soumise
+    // après le 31/08/2025 (Chaquopy 17 couvre l'alignement mémoire 16 Ko).
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.tree4five.swarmglu"
         minSdk 24          // Android 7.0 : couvre la quasi-totalité des tablettes scolales
-        targetSdk 34
-        versionCode 1
-        versionName "0.1.0"
+        targetSdk 35
+        versionCode 1      // incrémenter à CHAQUE upload Play (entier strictement croissant)
+        versionName "1.0.0"
 
         ndk {
             // ABI supportées : tablettes ARM (32/64 bits) + émulateurs x86.
@@ -29,11 +43,33 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            // Configurée uniquement si keystore.properties existe (sinon
+            // bloc vide, jamais référencé par buildTypes).
+            if (keystorePropsFile.exists()) {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
-            minifyEnabled false
+            if (keystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
+            // R8 : réduction + obfuscation — règles Chaquopy conservées
+            // (voir proguard-rules.pro). L'AAB en sort plus léger.
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
                           'proguard-rules.pro'
+        }
+        debug {
+            minifyEnabled false
         }
     }
 

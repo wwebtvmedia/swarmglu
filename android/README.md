@@ -6,14 +6,29 @@ Tree4Five (Djerba). Elle embarque **le même noyau Python** que les PC via
 chaîne de hachage, whitelist, passerelle) ne peut pas diverger entre
 plateformes.
 
-## Construire l'APK
+## Construire l'APK / l'AAB
 
-1. Ouvrir le dossier `android/` dans **Android Studio** (Hedgehog ou plus
-   récent). La synchronisation Gradle télécharge AGP/Kotlin/Chaquopy —
-   *seule la machine de build a besoin d'Internet, une seule fois*.
-2. `Build ▸ Build Bundle(s)/APK(s) ▸ Build APK(s)` → `app-debug.apk`.
-3. Installer sur les tablettes (USB ou partage de fichier local) :
-   `adb install app-debug.apk` — ensuite, **tout fonctionne hors-ligne**.
+Chaîne validée Google Play : **AGP 8.7.3 · Gradle 8.9 · Chaquopy 17 ·
+targetSdk 35** (exigence Play pour toute nouvelle app ; couvre
+l'alignement mémoire 16 Ko).
+
+1. Ouvrir le dossier `android/` dans **Android Studio**. La synchronisation
+   Gradle télécharge AGP/Kotlin/Chaquopy — *seule la machine de build a
+   besoin d'Internet, une seule fois*.
+2. **Debug (test tablette)** : `Build ▸ Build APK(s)` → `app-debug.apk`,
+   ou `adb install app-debug.apk`.
+3. **Release Google Play (AAB signé)** : la clé est déjà générée
+   (`swarmglu-release.keystore` + `keystore.properties`, non versionnés —
+   **faites une sauvegarde hors ligne**). Puis :
+
+   ```bash
+   cd android
+   ./gradlew bundleRelease   # → app/build/outputs/bundle/release/app-release.aab
+   ```
+
+4. Suivre [`../google-play/PLAY_CHECKLIST.md`](../google-play/PLAY_CHECKLIST.md)
+   pour la soumission Play Console (fiche, sécurité des données,
+   classification, captures).
 
 Aucun paquet pip n'est requis : le noyau SwarmGlu n'utilise que la
 bibliothèque standard Python. La tâche Gradle `syncSwarmGluCore`

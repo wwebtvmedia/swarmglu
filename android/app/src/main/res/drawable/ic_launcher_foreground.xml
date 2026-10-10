@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Premier plan adaptatif : motif essaim (3 nœuds reliés) DANS la zone
+     de sécurité centrale (66%) — les lanceurs rognent jusqu'à 33% des bords. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Zone sûre : 26..82 ; nœuds centrés ~44 -->
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="3"
+        android:pathData="M38,40L31,64M38,40L55,64M31,64H55" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M38,40m-7,0a7,7 0,1 1,14 0a7,7 0,1 1,-14 0" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M31,64m-7,0a7,7 0,1 1,14 0a7,7 0,1 1,-14 0" />
+    <path android:fillColor="#FF6F00"
+        android:pathData="M55,64m-7,0a7,7 0,1 1,14 0a7,7 0,1 1,-14 0" />
+</vector>

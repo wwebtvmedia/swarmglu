@@ -226,6 +226,15 @@ anti-boucle : 2 sauts max).
 | `POST /gateway/sync` · `/gateway/ask` | passerelle inter-essaims |
 | `GET /audit/verify` · `/audit/tail?n=` | chaîne de hachage |
 
+## 8 bis. Publication Google Play
+
+Tout le dossier de soumission est préparé dans [`google-play/`](google-play/) :
+checklist pas-à-pas, fiches magasin FR/EN, réponses « Sécurité des
+données » (aucune donnée collectée), classification 3+, visuels
+(icône 512, bannière 1024×500 — régénérables via `make_assets.py`), et
+signature release (`android/keystore.properties` + keystore locaux, non
+versionnés). Build de l'AAB : `cd android && ./gradlew bundleRelease`.
+
 ## 9. Modèle de sécurité (et limites assumées du PoC)
 
 - **Participation** : whitelist pré-partagée hors-ligne (USB) ou
