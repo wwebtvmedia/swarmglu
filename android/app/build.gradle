@@ -41,6 +41,10 @@ android {
             // ABI supportées : tablettes ARM (32/64 bits) + émulateurs x86.
             abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
         }
+
+        // Tests instrumentés (émulateur/tablette) :
+        //   ./gradlew connectedDebugAndroidTest
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -118,4 +122,9 @@ dependencies {
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.fragment:fragment-ktx:1.8.2'
+
+    // Tests instrumentés : la boucle SwarmGlu complète dans l'émulateur.
+    androidTestImplementation 'androidx.test:runner:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:core:1.6.1'
 }

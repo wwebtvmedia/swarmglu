@@ -36,6 +36,21 @@ bibliothèque standard Python. La tâche Gradle `syncSwarmGluCore`
 re-copie automatiquement les modules depuis la racine du dépôt à chaque
 build (source de vérité unique).
 
+## Tests (émulateur ou tablette USB)
+
+La boucle SwarmGlu complète est validée par un test instrumenté exécuté
+DANS Android — émulateur `tablet` (Pixel Tablet, API 34) ou appareil réel :
+
+```bash
+cd android && ./gradlew connectedDebugAndroidTest
+```
+
+Quatre tests (`SwarmGluNodeInstrumentedTest`) : bootstrap/auto-élection du
+leader, requête d'élève avec pare-feu OSP v0.6 (g=0.6, VERIFIED), barrière
+humaine des tâches agent (blocage sans validation, cycle unique), et
+rejeu de la chaîne de hachage INTACTE. Statut au 10/10/2026 : **4/4 PASS**
+sur l'émulateur local (Android 14).
+
 ## Utilisation en classe
 
 1. **Tableau de bord** → interrupteur « Nœud » : démarre le pair SwarmGlu

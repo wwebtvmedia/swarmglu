@@ -64,6 +64,14 @@ object PythonBridge {
     fun whitelistAdd(nodeId: String): JSONObject =
         JSONObject(module().callAttr("whitelist_add", nodeId).toString())
 
+    /** Création d'une tâche agent (barrière HITL) — corps JSON en entrée. */
+    fun agentTask(bodyJson: String): JSONObject =
+        JSONObject(module().callAttr("agent_task_json", bodyJson).toString())
+
+    /** Validation humaine d'une tâche (approuve/rejette puis dispatch). */
+    fun agentTaskValidate(taskId: String, approved: Boolean, by: String): JSONObject =
+        JSONObject(module().callAttr("agent_task_validate_json", taskId, approved, by).toString())
+
     /** Les appels réseau (ask...) peuvent durer : toujours hors du thread UI. */
     fun <T> onBackground(block: () -> T, onDone: (T) -> Unit) {
         Thread {

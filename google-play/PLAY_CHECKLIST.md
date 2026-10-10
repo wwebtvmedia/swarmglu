@@ -58,10 +58,10 @@ automatiquement). Play refuse un AAB signé debug.
   description courte ≤ 80 car., description longue ≤ 4000 car.).
 - ☐ Icône 512×512 : `assets/icon-512.png`.
 - ☐ Bannière : `assets/feature-graphic-1024x500.png`.
-- ☐ Captures d'écran (min. 2, JPEG/PNG 16:9 ou 9:16, min 320 px) : à
-  prendre sur tablette — Tableau de bord (nœud actif, pairs ●), Élève
-  (réponse avec verdict OSP vert), Audit (chaîne INTACTE). Astuce :
-  `adb exec-out screencap -p > ecran-1.png`.
+- ☑ ~~Captures d'écran~~ **4 captures réelles fournies** (émulateur Pixel
+  Tablet, 2560×1440, 16:9) : `assets/screenshots/` — tableau de bord
+  (nœud arrêté puis LEADER élu), réponse élève avec verdict OSP vert,
+  audit « CHAÎNE INTACTE ». Importer directement dans la fiche.
 
 ## 4. Test interne → production (recommandé pour un PoC école)
 

@@ -140,6 +140,34 @@ def whitelist_add(node_id: str) -> str:
 
 
 @_safe
+def agent_task_json(body_json: str) -> str:
+    """
+    Création d'une tâche agent HarnessDroid (barrière HITL).
+    `body_json` : {"student_id", "mcp": {"server","tool","args"}}.
+    Retourne {"http_status", "task": {...}} — la tâche part en
+    pending_validation : AUCUN dispatch sans validation humaine.
+    """
+    node = _node_or_error()
+    body = json.loads(body_json or "{}")
+    origin = "%s:%s" % (node.identity["ip"], node.config.port)
+    task = node.tasks.create(body, origin)
+    return json.dumps({"http_status": 200, "task": task}, default=str)
+
+
+@_safe
+def agent_task_validate_json(task_id: str, approved: bool, by: str = "") -> str:
+    """Validation humaine d'une tâche (approuve/rejette puis dispatch)."""
+    node = _node_or_error()
+    status, payload = node.tasks.validate(task_id, bool(approved), by or "enseignant")
+    payload = dict(payload or {})
+    payload["http_status"] = status
+    if status == 200 and payload.get("task_id"):
+        # Toujours joindre l'état complet de la tâche pour l'UI/les tests.
+        payload["task"] = node.tasks.get(task_id)
+    return json.dumps(payload, default=str)
+
+
+@_safe
 def whitelist_list_json() -> str:
     node = _node_or_error()
     return json.dumps({"nodes": node.security.nodes(),
