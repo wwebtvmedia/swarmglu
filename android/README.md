@@ -8,9 +8,10 @@ plateformes.
 
 ## Construire l'APK / l'AAB
 
-Chaîne validée Google Play : **AGP 8.7.3 · Gradle 8.9 · Chaquopy 17 ·
-targetSdk 35** (exigence Play pour toute nouvelle app ; couvre
-l'alignement mémoire 16 Ko).
+Chaîne **compilée et validée localement** (même combinaison que
+harnessDroid) : **AGP 8.7.2 · Gradle 8.9 · SDK android-36 · Chaquopy 17
+(Maven Central) · targetSdk 36** — au-dessus de l'exigence Play (35) et
+couvrant l'alignement mémoire 16 Ko.
 
 1. Ouvrir le dossier `android/` dans **Android Studio**. La synchronisation
    Gradle télécharge AGP/Kotlin/Chaquopy — *seule la machine de build a

@@ -26,14 +26,14 @@ if (keystorePropsFile.exists()) {
 
 android {
     namespace 'com.tree4five.swarmglu'
-    // targetSdk 35 : exigence Google Play pour toute NOUVELLE app soumise
-    // après le 31/08/2025 (Chaquopy 17 couvre l'alignement mémoire 16 Ko).
-    compileSdk 35
+    // targetSdk 36 : exigence Google Play pour toute NOUVELLE app soumise
+    // Chaquopy 17 couvre l_alignement mémoire 16 Ko (exigence 31/10/2025).
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.tree4five.swarmglu"
         minSdk 24          // Android 7.0 : couvre la quasi-totalité des tablettes scolales
-        targetSdk 35
+        targetSdk 36
         versionCode 1      // incrémenter à CHAQUE upload Play (entier strictement croissant)
         versionName "1.0.0"
 
@@ -83,8 +83,13 @@ android {
 }
 
 // Interpréteur Python embarqué (aucun paquet pip : stdlib pure).
-python {
-    version = "3.11"
+// DSL Chaquopy 16+ : bloc `chaquopy { defaultConfig { ... } }` (l'ancien
+// bloc `python {}` des versions 14/15 n'existe plus).
+chaquopy {
+    defaultConfig {
+        version = "3.11"
+        buildPython = ["python3"]  // interpréteur hôte utilisé à la construction
+    }
 }
 
 // Les modules du nœud vivent à la RACINE du dépôt SwarmGlu (source de
@@ -99,6 +104,13 @@ task syncSwarmGluCore(type: Copy) {
     into 'src/main/python'
 }
 preBuild.dependsOn syncSwarmGluCore
+// Dépendance explicite requise par Gradle : les tâches de fusion Python
+// de Chaquopy lisent le répertoire que syncSwarmGluCore vient d'écrire.
+tasks.configureEach { t ->
+    if (t.name ==~ /merge\w*PythonSources/) {
+        t.dependsOn syncSwarmGluCore
+    }
+}
 
 dependencies {
     implementation 'androidx.core:core-ktx:1.13.1'

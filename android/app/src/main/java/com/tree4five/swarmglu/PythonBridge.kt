@@ -2,7 +2,7 @@ package com.tree4five.swarmglu
 
 import android.content.Context
 import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPython
+import com.chaquo.python.android.AndroidPlatform
 import org.json.JSONObject
 
 /**
@@ -26,7 +26,7 @@ object PythonBridge {
         val ctx = appContext
             ?: throw IllegalStateException("appContext non initialisé")
         if (!Python.isStarted()) {
-            Python.start(AndroidPython(ctx.applicationContext))
+            Python.start(AndroidPlatform(ctx.applicationContext))
         }
         return Python.getInstance()
     }

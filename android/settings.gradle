@@ -1,14 +1,13 @@
 // SwarmGlu — settings.gradle
-// Dépôt des plugins : Chaquopy est distribué via son propre Maven
-// (la machine de BUILD doit avoir Internet une seule fois ; le nœud
-// Android ainsi produit fonctionne ensuite 100 % hors-ligne).
+// Tous les plugins viennent de google()/mavenCentral() : Chaquopy 17 est
+// publié sur Maven Central (la machine de BUILD doit avoir Internet une
+// seule fois ; le nœud Android ainsi produit fonctionne ensuite hors-ligne).
 
 pluginManagement {
     repositories {
         google()
         mavenCentral()
         gradlePluginPortal()
-        maven { url "https://chaquo.com/maven" }
     }
 }
 

@@ -6,9 +6,10 @@ humaines (compte Play Console, 25 USD une fois).
 
 ## 0. État de préparation (déjà fait dans ce dépôt)
 
-- ✅ **targetSdk 35** — exigence Play pour toute nouvelle app (depuis le
-  31/08/2025) ; chaîne AGP 8.7.3 · Gradle 8.9 · Chaquopy 17 (couvre
-  l'alignement mémoire 16 Ko, exigence 31/10/2025).
+- ✅ **targetSdk 36** — au-dessus de l'exigence Play pour toute nouvelle
+  app (35) ; chaîne **compilée et validée localement** : AGP 8.7.2 ·
+  Gradle 8.9 · SDK android-36 (même combinaison que harnessDroid).
+  Chaquopy 17 (Maven Central) couvre l'alignement mémoire 16 Ko.
 - ✅ **Clé de signature release** générée : `android/swarmglu-release.keystore`
   + `android/keystore.properties` (NON versionnés). **SAUVEGARDEZ-LES hors
   machine** : sans elles, aucune mise à jour future de l'app n'est possible.
@@ -90,7 +91,7 @@ automatiquement). Play refuse un AAB signé debug.
 
 | Symptôme | Cause / correctif |
 |---|---|
-| « Your app is using an old targetSdk » | vérifier `targetSdk 35` (exigence nouvelle app) |
+| « Your app is using an old targetSdk » | vérifier `targetSdk 36` dans app/build.gradle |
 | AAB rejeté « not signed » | keystore.properties absent du dossier `android/` au moment du build |
 | Review rejetée « app non fonctionnelle » | joindre la note de review du §4.2 (app en réseau local) |
 | Écran vide au 1er lancement | l'app démarre ARRÊTÉE : activer l'interrupteur « Nœud » du tableau de bord |
