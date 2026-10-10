@@ -31,6 +31,9 @@ FOR STUDENTS
 • Anti-hallucination firewall (OSP): every answer shows its groundedness
   score (cited sources) and verdict — unsourced answers are flagged and
   excluded from the shared knowledge pool.
+• Shared knowledge: every verified answer is automatically shared with
+  every machine in the swarm (PCs and tablets) — the class builds a
+  common, verifiable knowledge base together.
 
 FOR TEACHERS
 • Real-time dashboard: node role, elected coordinator, live peers, swarm,

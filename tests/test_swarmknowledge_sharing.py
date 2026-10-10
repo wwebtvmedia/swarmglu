@@ -32,6 +32,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -42,7 +43,10 @@ IP_LOIN = "192.168.1.249"
 OSP_URL = "http://%s:3000" % IP_LOIN
 PORT_PC = 7901
 PORT_LOIN = 7905
-IP_LOCALE = "192.168.1.105"     # cette machine, vue du LAN
+sys.path.insert(0, RACINE)
+from swarm_glu import detect_local_ip
+IP_LOCALE = detect_local_ip()    # cette machine, vue du LAN (p.ex. 192.168.1.105)
+RELAIS = []                      # processus socat : ports émulateurs exposés sur le LAN
 
 ECHECS = mu.ECHECS
 
@@ -104,6 +108,10 @@ def deployer_249(user):
     """Recopie SwarmGlu sur .249 et démarre le nœud distant `far-249`."""
     cible = "%s@%s" % (user, IP_LOIN)
     print("\n[0.bis] déploiement SwarmGlu sur %s…" % cible)
+    # Aseptiser : tuer tout reste d'une exécution précédente (une instance
+    # zombie sur le port 7905 fait échouer silencieusement la nouvelle).
+    mu.cmd(["ssh", "-o", "BatchMode=yes", cible,
+            "pkill -f 'cli.py serve' ; sleep 1 ; true"])
     r = mu.cmd(["ssh", "-o", "BatchMode=yes", cible,
                 "python3 --version && mkdir -p ~/swarmglu/data"])
     verifier("python3 disponible sur .249", r.returncode == 0 and "Python 3" in r.stdout, r.stderr)
@@ -121,7 +129,7 @@ def deployer_249(user):
          "cd ~/swarmglu && nohup python3 cli.py serve --node-id far-249 "
          "--port %d --advertise-ip %s --whitelist-file ~/swarmglu/wl-249.json "
          "--data-dir ~/swarmglu/data --mode full --mock-inference "
-         "--beacon-port 0 --peers %s:%d > ~/swarmglu/node.log 2>&1 &" % (
+         "--beacon-port 0 --peers %s:%d > ~/swarmglu/node.log 2>&1 < /dev/null &" % (
              PORT_LOIN, IP_LOIN, IP_LOCALE, PORT_PC)],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     ok = mu.attendre(25, lambda: http_json(
@@ -132,12 +140,69 @@ def deployer_249(user):
 
 def tuer_249(user):
     mu.cmd(["ssh", "-o", "BatchMode=yes", "%s@%s" % (user, IP_LOIN),
-            "pkill -f 'cli.py serve --node-id far-249' || true"])
+            "pkill -f 'cli.py serve' ; sleep 1 ; "
+            "pgrep -af 'cli.py serve' || echo 'far-249 arrêté'"])
 
 
 # ---------------------------------------------------------------------------
 # Essaim + partage de connaissances
 # ---------------------------------------------------------------------------
+
+def demarrer_relais():
+    """Expose les ports adb-forward des émulateurs sur l'IP LAN : sans cela,
+    192.168.1.249 ne pourrait pas joindre les nœuds Android (10.0.2.2 est un
+    alias interne à l'émulateur) et l'essaim se partitionnerait."""
+    import shutil
+    if not shutil.which("socat"):
+        raise SystemExit("socat requis pour la topologie 4 machines (apt install socat)")
+    for _avd, _console, port_hote, _nid in mu.AVDS:
+        RELAIS.append(subprocess.Popen(
+            ["socat", "TCP-LISTEN:%d,bind=%s,fork,reuseaddr" % (port_hote, IP_LOCALE),
+             "TCP:127.0.0.1:%d" % port_hote],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+    # petit temps d'établissement des listeners
+    time.sleep(1.0)
+    print("[setup] relais LAN actifs : %s:%s" % (IP_LOCALE, [p for _a, _c, p, _n in mu.AVDS]))
+
+
+def arreter_relais():
+    for proc in RELAIS:
+        if proc.poll() is None:
+            proc.terminate()
+
+
+def lancer_noeuds_partage():
+    """Comme mu.lancer_noeuds mais en topologie LAN uniforme :
+    le PC ET les émulateurs annoncent IP_LOCALE (joignable de .249)."""
+    dossier = os.path.join(RACINE, "..")
+    dossier = os.path.abspath(tempfile.mkdtemp(prefix="sgsk_pc_"))
+    pc = subprocess.Popen(
+        [sys.executable, os.path.join(RACINE, "cli.py"), "serve",
+         "--node-id", "pc-orchestre", "--port", str(PORT_PC),
+         "--whitelist-file", os.path.join(dossier, "wl.json"),
+         "--data-dir", os.path.join(dossier, "data"),
+         "--advertise-ip", IP_LOCALE,
+         "--mode", "full", "--mock-inference", "--beacon-port", "0",
+         "--gguf-models", "pc-coordonnateur"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    instrumentations = []
+    for _avd, port_console, port_hote, node_id in mu.AVDS:
+        serial = "emulator-%d" % port_console
+        instrumentations.append(subprocess.Popen(
+            [mu.ADB, "-s", serial, "shell", "am", "instrument", "-w",
+             "-e", "class", "com.tree4five.swarmglu.NodeDriverInstrumentation",
+             "-e", "node_id", node_id,
+             "-e", "port", str(mu.PORT_EMU),
+             "-e", "advertise_ip", IP_LOCALE,
+             "-e", "advertise_port", str(port_hote),
+             "-e", "peers", "%s:%d" % (IP_LOCALE, PORT_PC),
+             "-e", "swarm_id", "salle-multi-emu",
+             "-e", "heartbeat", "3.0", "-e", "lease", "6.0",
+             "-e", "duration_s", "420",
+             "%s.test/androidx.test.runner.AndroidJUnitRunner" % mu.PKG],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+    return pc, instrumentations
+
 
 def statuts(urls):
     s = {}
@@ -169,22 +234,28 @@ def main():
     args = parseur.parse_args()
 
     ancre, user_ssh = phase_ecosysteme(args.deploy_249)
-    distant = deployer_249(user_ssh) if user_ssh else None
-
     urls = {"pc-orchestre": "http://127.0.0.1:%d" % PORT_PC,
             "emu-alpha": "http://127.0.0.1:%d" % mu.AVDS[0][2],
             "emu-beta": "http://127.0.0.1:%d" % mu.AVDS[1][2]}
-    if distant:
-        urls["far-249"] = "http://%s:%d" % (IP_LOIN, PORT_LOIN)
-
-    pc = instrumentations = None
+    pc = instrumentations = distant = None
     try:
         mu.creer_avds()
         mu.booter_emulateurs()
         mu.installer_et_forwarder()
+        demarrer_relais()
         print("\n[1] démarrage de l'essaim (%d nœuds : PC + 2 émulateurs%s)…" % (
             len(urls), " + .249" if distant else ""))
-        pc, instrumentations = mu.lancer_noeuds()
+        pc, instrumentations = lancer_noeuds_partage()
+
+        # .249 est déployé APRÈS l'essaim local : son « join » doit trouver
+        # un PC déjà leader — sinon il s'auto-élit en ermite et n'est plus
+        # jamais rattrapé (partition observée et diagnostiquée).
+        distant = None
+        if user_ssh:
+            time.sleep(8)   # laisser le PC s'auto-élire (bail 6 s)
+            distant = deployer_249(user_ssh)
+            if distant:
+                urls["far-249"] = "http://%s:%d" % (IP_LOIN, PORT_LOIN)
 
         # -- convergence ---------------------------------------------------
         print("\n[2] convergence…")
@@ -286,6 +357,7 @@ def main():
             verifier("chaîne INTACTE sur %s" % nom, bool(v and v.get("ok")), v)
 
     finally:
+        arreter_relais()
         mu.nettoyer(pc, instrumentations or [])
         if user_ssh:
             tuer_249(user_ssh)

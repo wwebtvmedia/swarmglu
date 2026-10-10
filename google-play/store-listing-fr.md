@@ -31,6 +31,9 @@ POUR LES ÉLÈVES
 • Pare-feu anti-hallucination OSP : chaque réponse affiche son indice de
   véracité ancrée (sources citées) et son verdict — les réponses non
   sourcées sont signalées et exclues du savoir partagé.
+• Savoir commun : chaque réponse vérifiée est partagée automatiquement à
+  toutes les machines de l'essaim (PC, tablettes) — la classe construit
+  une base de connaissances commune, vérifiable à tout moment.
 
 POUR LES ENSEIGNANTS
 • Tableau de bord temps réel : rôle du nœud, coordinateur élu, pairs
