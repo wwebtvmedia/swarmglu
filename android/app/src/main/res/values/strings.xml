@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SwarmGlu</string>
+
+    <!-- Notification du service de nœud -->
+    <string name="notif_channel">Nœud SwarmGlu</string>
+    <string name="notif_channel_desc">Maintient la tablette active dans l\'essaim Tree4Five (heartbeats, consensus, routage).</string>
+    <string name="notif_title">SwarmGlu actif</string>
+    <string name="notif_text">Ce nœud participe à l\'essaim Wi-Fi local.</string>
+
+    <!-- Navigation -->
+    <string name="nav_dashboard">Tableau de bord</string>
+    <string name="nav_ask">Élève</string>
+    <string name="nav_audit">Audit</string>
+
+    <!-- Réglages -->
+    <string name="settings_title">⚙ Réglages du nœud</string>
+    <string name="settings_help">mode : full (éligible leader), follower (jamais leader), ambassador (passerelle), provider. peers : seeds « ip:port » séparés par des virgules (ex. 192.168.4.10:7001). mock : 1 = fournisseur factice (démo), 0 = pont GGUF réel.</string>
+    <string name="settings_saved">Réglages enregistrés — redémarrez le nœud.</string>
+    <string name="set_node_id">Identifiant du nœud</string>
+    <string name="set_port">Port HTTP (défaut 7001)</string>
+    <string name="set_swarm">Essaim (salle-1, salle-2…)</string>
+    <string name="set_mode">Mode (full / follower / ambassador)</string>
+    <string name="set_peers">Pairs seed (ip:port,…)</string>
+    <string name="set_neighbors">Essaims voisins (ip:port,…)</string>
+    <string name="set_gguf">URL du pont GGUF (facultatif)</string>
+    <string name="set_mock">Mock d\'inférence (1/0)</string>
+
+    <!-- Tableau de bord -->
+    <string name="switch_node_label">Nœud</string>
+    <string name="state_stopped">ARRÊTÉ</string>
+    <string name="role_fmt">RÔLE : %s</string>
+    <string name="identity_fmt">%1$s — %2$s — essaim « %3$s »</string>
+    <string name="consensus_fmt">Leader : %1$s   epoch : %2$d   uptime : %3$.0f s</string>
+    <string name="state_fmt">État : digest %1$s…   pairs : %2$d (%3$d vivants)</string>
+    <string name="audit_fmt">Audit : %1$d blocs — chaîne %2$s</string>
+    <string name="lbl_peers">Pairs de l\'essaim (● vivant / ○ muet)</string>
+    <string name="lbl_gateway">Essaims voisins (passerelle)</string>
+    <string name="lbl_whitelist">Whitelist locale — ajouter un nœud</string>
+    <string name="wl_hint">node_id du pair</string>
+    <string name="wl_add">Ajouter</string>
+    <string name="wl_added">Nœud ajouté à la whitelist ✓</string>
+    <string name="no_peers">Aucun pair connu pour l\'instant (découverte UDP ou seeds).</string>
+    <string name="no_neighbors">Aucun essaim voisin (mode ambassador requis).</string>
+
+    <!-- Écran élève -->
+    <string name="ask_title">Poser une question à l\'essaim</string>
+    <string name="ask_hint">Votre question… (elle sera routée vers le meilleur modèle local)</string>
+    <string name="ask_model_hint">Modèle souhaité (facultatif : qwen, llama, phi…)</string>
+    <string name="ask_swarm_hint">Essaim cible (facultatif : salle-2…)</string>
+    <string name="ask_button">Demander à l\'essaim</string>
+    <string name="ask_empty">Écrivez d\'abord votre question ☺</string>
+    <string name="ask_routing">Routage de la requête dans l\'essaim…</string>
+    <string name="ask_error">Échec : %1$s</string>
+    <string name="ask_sources">Sources ancrées :</string>
+
+    <!-- Écran audit -->
+    <string name="audit_title">Journal immuable (chaîne de hachage)</string>
+    <string name="audit_verify_btn">Vérifier la chaîne</string>
+    <string name="audit_tail_btn">Derniers événements</string>
+    <string name="audit_hint">Chaque événement (requête, élection, synchronisation…) est scellé par hash = sha256(event_data + previous_hash + timestamp). La vérification rejoue toute la chaîne.</string>
+    <string name="audit_running">Vérification en cours…</string>
+    <string name="audit_ok">✓ CHAÎNE INTACTE — %1$d bloc(s)\n\npremier hash : %2$s\ndernier hash : %3$s</string>
+    <string name="audit_ko">✗ CHAÎNE CORROMPUE (ligne %1$d)\n\n%2$s</string>
+    <string name="audit_node_off">Le nœud n\'est pas démarré — activez-le sur le tableau de bord.</string>
+    <string name="audit_empty">Journal vide.</string>
+</resources>

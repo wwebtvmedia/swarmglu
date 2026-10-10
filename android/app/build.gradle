@@ -1,0 +1,73 @@
+// SwarmGlu — app/build.gradle
+// Application Android com.tree4five.swarmglu.
+//
+// Intégrateur Chaquopy : embarque l'interpréteur CPython et exécute les
+// modules SwarmGlu NON MODIFIÉS (aucun pip requis : bibliothèque standard
+// uniquement). Le protocole est ainsi strictement identique entre les PC
+// et les tablettes de l'école — impossible qu'il diverge.
+
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'com.chaquo.python'
+}
+
+android {
+    namespace 'com.tree4five.swarmglu'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.tree4five.swarmglu"
+        minSdk 24          // Android 7.0 : couvre la quasi-totalité des tablettes scolales
+        targetSdk 34
+        versionCode 1
+        versionName "0.1.0"
+
+        ndk {
+            // ABI supportées : tablettes ARM (32/64 bits) + émulateurs x86.
+            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
+                          'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+// Interpréteur Python embarqué (aucun paquet pip : stdlib pure).
+python {
+    version = "3.11"
+}
+
+// Les modules du nœud vivent à la RACINE du dépôt SwarmGlu (source de
+// vérité unique, partagée PC/Android) : cette tâche les re-copie dans le
+// source set Python avant chaque build. `android/` peut aussi être build
+// seul : src/main/python contient déjà une copie fonctionnelle.
+task syncSwarmGluCore(type: Copy) {
+    description = "Synchronise les modules SwarmGlu depuis la racine du dépôt."
+    from rootProject.projectDir.parentFile
+    include 'security.py', 'consensus.py', 'state_manager.py',
+            'gateway.py', 'swarm_glu.py', 'android_bridge.py'
+    into 'src/main/python'
+}
+preBuild.dependsOn syncSwarmGluCore
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.fragment:fragment-ktx:1.8.2'
+}

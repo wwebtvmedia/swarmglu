@@ -1,0 +1,31 @@
+# SwarmGlu — artefacts d'exécution (jamais versionnés)
+
+# Journaux d'audit et données de nœuds générés au runtime
+data/
+*.jsonl
+swarm_audit.jsonl
+
+# Whitelist locale générée (les fichiers d'exemple sont documentés dans le README)
+whitelist.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Android Studio / Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/**/*.iml
+android/.cxx/
+*.apk
+*.aab
+
+# Divers
+.DS_Store
+*.log

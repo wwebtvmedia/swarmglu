@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="swarm_primary">#1565C0</color>
+    <color name="swarm_primary_dark">#0D47A1</color>
+    <color name="swarm_accent">#FF6F00</color>
+</resources>

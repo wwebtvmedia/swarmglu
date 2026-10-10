@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Thème sombre adapté aux salles (moins éblouissant) + Material. -->
+    <style name="Theme.SwarmGlu" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/swarm_primary</item>
+        <item name="colorPrimaryDark">@color/swarm_primary_dark</item>
+        <item name="colorAccent">@color/swarm_accent</item>
+        <item name="android:windowBackground">#111418</item>
+    </style>
+</resources>
