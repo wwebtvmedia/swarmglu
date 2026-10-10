@@ -53,7 +53,7 @@ HIGHLIGHTS
 
 The app ships with a demo inference provider, so a single tablet is
 enough to try it. For a full swarm, also run SwarmGlu on a PC
-(github.com/ybenyedder/swarmglu).
+(github.com/wwebtvmedia/swarmglu).
 
 SwarmGlu is a module of Tree4Five Tools — sovereign, local, decentralized
 AI.

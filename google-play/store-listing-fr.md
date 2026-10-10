@@ -55,7 +55,7 @@ CARACTÉRISTIQUES
 
 L'application inclut un fournisseur de démonstration : une seule tablette
 suffit pour l'essayer. Pour un essaim complet, lancez aussi SwarmGlu sur
-un PC (github.com/ybenyedder/swarmglu).
+un PC (github.com/wwebtvmedia/swarmglu).
 
 SwarmGlu est un module de Tree4Five Tools — IA souveraine, locale et
 décentralisée.
