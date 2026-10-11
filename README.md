@@ -103,6 +103,30 @@ python3 cli.py status --url http://127.0.0.1:7101
 
 4. Vérifier : `python3 cli.py status --url http://192.168.4.10:7001`
 
+### 3.3 Étendre la zone : point d'accès + routage applicatif
+
+Sur **Android**, le bouton « 📡 Étendre l'essaim » du tableau de bord ouvre
+un [hotspot local-only](https://developer.android.com/develop/connectivity/wifi/localonlyhotspot)
+(`startLocalOnlyHotspot`, permissions localisation/Wi-Fi). La tablette
+devient **routeur de l'essaim** : les appareils qui rejoignent le hotspot
+(autres tablettes, agents HarnessDroid, ponts GGUF/LLMProvider — voir
+`../harnessDroid`, `../LLMProvider`) atteignent le réseau principal par le
+**relais applicatif** de ce nœud :
+
+```bash
+curl -X POST http://<routeur>:7001/relay -d '{
+  "host": "192.168.1.249", "port": 3000,
+  "path": "/osp/endpoint.json"}'   # → swarmknowledge, via le routeur
+```
+
+Le relais n'accepte que les destinations **privées** (RFC1918/loopback) —
+jamais de proxy ouvert — et chaque relais est scellé dans l'audit
+(événement `relayed`). Sur **PC Linux**, la même topologie se monte avec
+NetworkManager : `nmcli device wifi hotspot ssid SwarmGlu password …`
+(le nœud bind 0.0.0.0 et sert de routeur à l'identique). Scénario de test
+complet (routeur + client hotspot + 192.168.1.249) :
+`python3 tests/test_hotspot_scenario.py --deploy-249 youyou`.
+
 **Découverte** : les nœuds s'annoncent par beacon UDP broadcast
 (port 47479, `MulticastLock` acquis sur Android). Si le routeur filtre le
 broadcast, les seeds `--peers ip:port` prennent le relais.
@@ -266,6 +290,7 @@ python3 cli.py secure-auth --url http://127.0.0.1:7001
 | `POST /whitelist/trigger-resign` | déclenchement du cycle de sélection et re-signature décentralisée |
 | `GET /whitelist/signed` | consultation de la whitelist signée actuelle et de sa preuve de consensus |
 | `POST /gateway/sync` · `/gateway/ask` | passerelle inter-essaims |
+| `POST /relay` | **routage du hotspot** : le nœud routeur relaie les clients vers les services privés du réseau principal (RFC1918/loopback uniquement) |
 | `GET /knowledge` | **savoir commun** : réponses VERIFIED partagées à tout l'essaim (count + digest) |
 | `GET /audit/verify` · `/audit/tail?n=` | chaîne de hachage |
 

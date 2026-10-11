@@ -54,6 +54,20 @@ class DashboardFragment : Fragment() {
             }, 1500)
         }
 
+        // Point d'accès local-only : étendre la zone de l'essaim.
+        view.findViewById<View>(R.id.btn_hotspot).setOnClickListener {
+            val sortie = view.findViewById<TextView>(R.id.tv_hotspot)
+            if (HotspotManager.actif) {
+                sortie.text = getString(R.string.hotspot_arrete)
+                return@setOnClickListener
+            }
+            sortie.text = getString(R.string.ask_routing)  // « en cours… »
+            HotspotManager.demarrer(
+                requireContext(),
+                onInfo = { info -> sortie.text = info },
+                onError = { err -> sortie.text = "${getString(R.string.hotspot_aide)}\n[$err]" })
+        }
+
         // Administration : ajouter un pair à la whitelist locale.
         view.findViewById<View>(R.id.btn_wl_add).setOnClickListener {
             val input = view.findViewById<EditText>(R.id.input_wl_node)

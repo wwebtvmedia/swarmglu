@@ -103,6 +103,21 @@
             android:textSize="12sp"
             android:text="@string/no_neighbors" />
 
+        <Button
+            android:id="@+id/btn_hotspot"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/hotspot_bouton" />
+
+        <TextView
+            android:id="@+id/tv_hotspot"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:text="@string/hotspot_aide" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

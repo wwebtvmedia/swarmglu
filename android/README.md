@@ -57,7 +57,11 @@ sur l'émulateur local (Android 14).
 1. **Tableau de bord** → interrupteur « Nœud » : démarre le pair SwarmGlu
    (service de premier plan : la tablette reste un membre actif de
    l'essaim, écran éteint compris).
-2. **⚙ Réglages** : identifiant, port (7001), essaim (`salle-1`), mode
+2. **📡 Étendre l'essaim** : ouvre un hotspot local-only — la tablette
+   devient routeur ; les appareils joints (harnessDroid, LLMProvider,
+   autres tablettes) passent par son relais `/relay` (désactivé en
+   fait d'émulateur : pas de radio Wi-Fi).
+2bis. **⚙ Réglages** : identifiant, port (7001), essaim (`salle-1`), mode
    (`follower` conseillé pour les tablettes élèves), seeds `ip:port` du
    PC professeur, mock d'inférence (démo) ou URL du pont GGUF local.
 3. **Élève** : poser une question — routage vers le meilleur modèle local,

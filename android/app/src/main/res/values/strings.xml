@@ -64,4 +64,10 @@
     <string name="audit_ko">✗ CHAÎNE CORROMPUE (ligne %1$d)\n\n%2$s</string>
     <string name="audit_node_off">Le nœud n\'est pas démarré — activez-le sur le tableau de bord.</string>
     <string name="audit_empty">Journal vide.</string>
+    <string name="hotspot_bouton">📡 Étendre l\'essaim (point d\'accès Wi-Fi)</string>
+    <string name="hotspot_aide">Active un hotspot local-only : les appareils qui s\'y joignent atteignent l\'essaim et ses services via ce nœud (relais). Non disponible sur émulateur.</string>
+    <string name="hotspot_info">Hotspot ACTIF — SSID : %1$s\nMot de passe : %2$s\nCe nœud route les clients vers l\'essaim (POST /relay).</string>
+    <string name="hotspot_echec">Hotspot échoué (code %1$d) — émulateur ou permission manquante.</string>
+    <string name="hotspot_arrete">Hotspot arrêté.</string>
+    <string name="hotspot_invalide">Wi-Fi indisponible sur cet appareil.</string>
 </resources>

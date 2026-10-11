@@ -1275,6 +1275,53 @@ class SwarmNode:
         n = int((query.get("n") or ["20"])[0])
         return 200, {"events": self.security.tail(min(n, 500))}
 
+    def h_relay(self, body, headers, params, query):
+        """
+        POST /relay — ROUTAGE APPLICATIF DU POINT D'ACCÈS (« étendre la
+        zone »).
+
+        Sur Android, un nœud peut ouvrir un hotspot local-only
+        (WifiManager.startLocalOnlyHotspot — bouton « Étendre l'essaim » de
+        l'application) : les clients de ce hotspot (tablettes d'élèves,
+        agents HarnessDroid, ponts GGUF/LLMProvider…) n'ont PAS accès au
+        LAN de l'école. Ce nœud, membre des DEUX réseaux, relaie leurs
+        requêtes HTTP vers les services du réseau principal.
+
+        Sécurité : destinations limitées aux adresses PRIVÉES (RFC1918 +
+        loopback) — jamais de proxy ouvert vers Internet ; chaque relais
+        est scellé dans la chaîne d'audit.
+        """
+        import ipaddress
+        host = str(body.get("host", ""))
+        port = int(body.get("port", 80) or 80)
+        chemin = str(body.get("path", "/") or "/")
+        methode = str(body.get("method", "GET") or "GET").upper()
+        timeout = min(float(body.get("timeout", 30) or 30), 90.0)
+        try:
+            ip = ipaddress.ip_address(host)
+            if not (ip.is_private or ip.is_loopback):
+                return 403, {"error": "relais limité aux réseaux privés "
+                                      "(RFC1918/loopback)", "host": host}
+        except ValueError:
+            return 400, {"error": "adresse IP littérale requise", "host": host}
+
+        t0 = time.time()
+        if methode == "POST":
+            status, reponse = self.transport.post(
+                host, port, chemin, body.get("body") or {}, timeout=timeout)
+        elif methode == "GET":
+            status, reponse = self.transport.get(host, port, chemin, timeout=timeout)
+        else:
+            return 400, {"error": "methode GET ou POST uniquement", "method": methode}
+        self.security.record_event(
+            "relayed", self.node_id,
+            {"host": host, "port": port, "path": chemin, "method": methode,
+             "status": status},
+            processing_time=time.time() - t0, request_time=t0)
+        return 200, {"status": status, "data": reponse,
+                     "relayed_by": self.node_id,
+                     "processing_time": round(time.time() - t0, 3)}
+
     def h_gateway_sync(self, body, headers, params, query):
         return self.gateway.handle_sync(body)
 
@@ -1321,6 +1368,7 @@ ROUTES: Dict[Tuple[str, str], str] = {
     ("POST", "/agent/task"): "h_agent_task",
     ("POST", "/agent/dispatch"): "h_agent_dispatch",
     ("POST", "/agent/result"): "h_agent_result",
+    ("POST", "/relay"): "h_relay",
     ("POST", "/gateway/sync"): "h_gateway_sync",
     ("POST", "/gateway/ask"): "h_gateway_ask",
     ("POST", "/secure/handshake"): "h_secure_handshake",
