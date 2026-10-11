@@ -87,6 +87,12 @@ class NodeCrypto:
         self._mlkem_pub: Any = None
         self._mock_mode = not HAS_CRYPTOGRAPHY
 
+    @property
+    def mode(self) -> str:
+        """Mode cryptographique effectif : « cryptography » (ECDSA/ML-KEM
+        réels) ou « mock » (HMAC — REPLI sans interopérabilité)."""
+        return "mock" if self._mock_mode else "cryptography"
+
         self._load_or_generate_keys()
 
     def _keys_filepath(self) -> Optional[str]:

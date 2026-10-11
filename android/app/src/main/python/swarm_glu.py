@@ -923,6 +923,7 @@ class SwarmNode:
             },
             "whitelist_digest": self.security.whitelist_digest(),
             "whitelist_count": len(self.security.nodes()),
+            "crypto_mode": self.crypto.mode,
             "audit": self.security.verify_chain(),
             "peers": peers,
             "gateway_neighbors": self.gateway.neighbors(),
