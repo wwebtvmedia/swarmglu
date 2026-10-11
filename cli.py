@@ -547,7 +547,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="URL du pont GGUF local (ex. http://127.0.0.1:11434)")
     p.add_argument("--gguf-models", default="",
                    help="modèles offerts, séparés par virgule (qwen2.5:0.5b,...)")
-    p.add_argument("--api-flavor", default="ollama", choices=["ollama", "openai"],
+    p.add_argument("--api-flavor", default="ollama", choices=["ollama", "ollama-chat", "openai"],
                    help="saveur d'API du pont GGUF")
     p.add_argument("--log-raw-prompts", action="store_true",
                    help="journalise le prompt en clair (défaut: hashé, vie privée)")

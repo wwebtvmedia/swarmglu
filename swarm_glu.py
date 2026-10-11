@@ -714,6 +714,12 @@ class SwarmNode:
             path = "/v1/chat/completions"
             payload = {"model": model, "stream": False,
                        "messages": [{"role": "user", "content": prompt}]}
+        elif flavor == "ollama-chat":
+            # Modèles de CHAT uniquement (certains modèles ne répondent pas
+            # via /api/generate) — ex. qwen38-27b de l'école.
+            path = "/api/chat"
+            payload = {"model": model, "stream": False,
+                       "messages": [{"role": "user", "content": prompt}]}
         else:  # ollama
             path = "/api/generate"
             payload = {"model": model, "prompt": prompt, "stream": False}
@@ -725,6 +731,8 @@ class SwarmNode:
 
         if flavor == "openai":
             answer = (reply.get("choices") or [{}])[0].get("message", {}).get("content", "")
+        elif flavor == "ollama-chat":
+            answer = (reply.get("message") or {}).get("content", "")
         else:
             answer = reply.get("response", "")
         return 200, {"answer": answer, "model": reply.get("model", model),
