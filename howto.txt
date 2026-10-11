@@ -28,14 +28,21 @@ b. Démo de résilience automatique — 3 nœuds locaux, leader tué (~1 min)
    Attendu : "RÉSILIENCE VALIDÉE ✔" (réélection ~2-3 s, /ask servi,
    3 chaînes d'audit INTACTES). Répertoire de travail conservé dans /tmp.
 
-c. Essaim réel 2 émulateurs Android + 1 PC (~5 min)
+c. Communication émulateur ↔ 192.168.1.249 + téléphones USB (~8 min)
+   Détecte AUTOMATIQUEMENT les appareils branchés (Note 10, tablette…),
+   équipe .249 (roues cryptography), converge en essaim direct, teste
+   ancrage OSP, savoir partagé, relais, handshake PQ, failover ~7 s.
+
+       python3 tests/test_communication_249.py
+
+d. Essaim réel 2 émulateurs Android + 1 PC (~5 min)
    Crée/boote les AVD sg-e1/sg-e2 automatiquement (adb forward + socat).
 
        python3 tests/test_multi_emulator_swarm.py
 
    Attendu : "ESSAIM MULTI-ÉMULATEURS VALIDÉ ✔" (9 vérifications)
 
-d. Interop swarmknowledge + partage du savoir, 4 machines (~7 min)
+e. Interop swarmknowledge + partage du savoir, 4 machines (~7 min)
    Déploie un nœud SwarmGlu sur 192.168.1.249 (SSH), ancre une réponse sur
    le nœud OSP vivant (:3000), vérifie le savoir partagé PARTOUT (même
    digest sur les 4 machines), mort du leader + réélection ~6-8 s.
@@ -45,7 +52,7 @@ d. Interop swarmknowledge + partage du savoir, 4 machines (~7 min)
    Attendu : "PARTAGE DE CONNAISSANCES VALIDÉ ✔"
    (sans déploiement distant : retirer "--deploy-249 youyou")
 
-e. Multi-essaims fédérés — 2 salles, 5 machines (~8 min)
+f. Multi-essaims fédérés — 2 salles, 5 machines (~8 min)
    salle-A (pc-a + émulateur ambassadeur) / salle-B (pc-b + émulateur +
    far-249) : Digest Exchange bilatéral, savoir CLOISONNÉ, requêtes
    fédérées croisées, mort du leader de salle-A (réélection ~9 s) SANS
@@ -55,7 +62,7 @@ e. Multi-essaims fédérés — 2 salles, 5 machines (~8 min)
 
    Attendu : "MULTI-ESSAIMS VALIDÉ ✔"
 
-f. Scénario hotspot « étendre la zone » (~7 min)
+g. Scénario hotspot « étendre la zone » (~7 min)
    Routeur (émulateur) + client hotspot (émulateur, graine = routeur seul)
    + PC + far-249 : swarmknowledge (:3000) et le nœud .249 atteints À
    TRAVERS le relais du routeur, pas de proxy ouvert (IP publique → 403).
@@ -64,7 +71,7 @@ f. Scénario hotspot « étendre la zone » (~7 min)
 
    Attendu : "SCÉNARIO HOTSPOT VALIDÉ ✔"
 
-g. Non-régression DANS Android (boucle complète sur émulateur/tablette)
+h. Non-régression DANS Android (boucle complète sur émulateur/tablette)
 
        cd android && ./gradlew connectedDebugAndroidTest
 
