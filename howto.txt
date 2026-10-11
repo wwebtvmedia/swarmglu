@@ -50,6 +50,8 @@ d. Essaim MIXTE Python + KOTLIN (interopérabilité câble, ~1 min)
        cd .. && python3 tests/test_kotlin_interop.py
        # tri-langage réel (+ Android natif émulateur, ~4 min) :
        python3 tests/test_kotlin_interop.py --emulateur
+       # TÉLÉPHONES PHYSIQUES USB (détection auto, ~3 min) :
+       python3 tests/test_real_devices_swarm.py
        # tri-langage réel (+ Android émulateur, ~4 min) :
        python3 tests/test_kotlin_interop.py --emulateur
 
