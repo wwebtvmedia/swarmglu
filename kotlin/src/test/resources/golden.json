@@ -1,0 +1,127 @@
+{
+ "chaine": {
+  "jsonl": "{\"seq\": 1, \"timestamp\": \"2026-10-11T09:42:00.357Z\", \"request_time\": 1750000000.0, \"processing_time\": 0.1, \"previous_hash\": \"0000000000000000000000000000000000000000000000000000000000000000\", \"hash\": \"7f716e196eb8b6774a885612685c0682bb294b60f314c6cc025366963822ecd1\", \"event\": {\"seq\": 1, \"event_type\": \"node_start\", \"node_id\": \"kot-a\", \"payload\": {\"x\": 1, \"liste\": [3, 1, 2]}, \"request_time\": 1750000000.0, \"processing_time\": 0.1}}\n{\"seq\": 2, \"timestamp\": \"2026-10-11T09:42:00.357Z\", \"request_time\": 1750000001.5, \"processing_time\": 0.25, \"previous_hash\": \"7f716e196eb8b6774a885612685c0682bb294b60f314c6cc025366963822ecd1\", \"hash\": \"8560c9cf3d0990fa2c6fb8f1935118ce9e16d50bfd2cf7c421207d738cc01d3b\", \"event\": {\"seq\": 2, \"event_type\": \"peer_registered\", \"node_id\": \"py-b\", \"payload\": {\"ip\": \"127.0.0.1\", \"port\": 7002}, \"request_time\": 1750000001.5, \"processing_time\": 0.25}}\n{\"seq\": 3, \"timestamp\": \"2026-10-11T09:42:00.357Z\", \"request_time\": 1750000002.123, \"processing_time\": 0.0, \"previous_hash\": \"8560c9cf3d0990fa2c6fb8f1935118ce9e16d50bfd2cf7c421207d738cc01d3b\", \"hash\": \"3b8d2ae5ea2409ed31892a7a328803425597392e7b081854c79838142b0fe4ee\", \"event\": {\"seq\": 3, \"event_type\": \"leader_elected\", \"node_id\": \"kot-a\", \"payload\": {\"leader\": \"kot-a\", \"epoch\": 1}, \"request_time\": 1750000002.123, \"processing_time\": 0.0}}\n{\"seq\": 4, \"timestamp\": \"2026-10-11T09:42:00.357Z\", \"request_time\": 1750000003.001, \"processing_time\": 1.287, \"previous_hash\": \"3b8d2ae5ea2409ed31892a7a328803425597392e7b081854c79838142b0fe4ee\", \"hash\": \"909ce14348774418bf8f7c192a080a044770244c79051d4b11f5ee58d25cba84\", \"event\": {\"seq\": 4, \"event_type\": \"request_routed\", \"node_id\": \"eleve-1\", \"payload\": {\"prompt_sha256\": \"abababababababababababababababababababababababababababababababab\", \"osp\": {\"groundedness\": 0.6}}, \"request_time\": 1750000003.001, \"processing_time\": 1.287}}\n{\"seq\": 5, \"timestamp\": \"2026-10-11T09:42:00.357Z\", \"request_time\": 1750000004.999, \"processing_time\": 0.002, \"previous_hash\": \"909ce14348774418bf8f7c192a080a044770244c79051d4b11f5ee58d25cba84\", \"hash\": \"5f0ba87c2f5c497d752fc8bb80068c280b1ae386547768a675be8af82530f996\", \"event\": {\"seq\": 5, \"event_type\": \"knowledge_shared\", \"node_id\": \"eleve-1\", \"payload\": {\"key\": \"knowledge:abc123\", \"sources\": [\"osp://x\", \"osp://y\"]}, \"request_time\": 1750000004.999, \"processing_time\": 0.002}}\n",
+  "entries": 5,
+  "last_hash": "5f0ba87c2f5c497d752fc8bb80068c280b1ae386547768a675be8af82530f996",
+  "bloc_suivant_attendu": "b8f3da3f3b07653260da107a293ea7ecb81098a1284e4bcdc80b1acbe480f69a",
+  "temps_suivant": 1750000010.25
+ },
+ "etat": {
+  "docA": {
+   "epoch": 0,
+   "leader_id": null,
+   "leader_key": null,
+   "version": 4,
+   "updated_at": "2026-10-11T09:42:00.358Z",
+   "whitelist_nodes": [
+    "kot-a",
+    "py-b"
+   ],
+   "peers": {
+    "n1": {
+     "ip": "10.0.0.1",
+     "port": 1,
+     "mode": "full",
+     "capabilities": [
+      "inference"
+     ],
+     "models": [
+      "m1"
+     ],
+     "writer": "kot-a",
+     "updated_at": 1791711720.358,
+     "last_seen": 100.5,
+     "alive": true
+    },
+    "commun": {
+     "ip": "10.0.0.9",
+     "port": 9,
+     "mode": "follower",
+     "writer": "kot-a",
+     "updated_at": 1791711720.358
+    }
+   },
+   "meta": {
+    "gateway:salle-B": {
+     "ts": 1.0
+    }
+   }
+  },
+  "docB": {
+   "epoch": 3,
+   "leader_id": "py-b",
+   "leader_key": "099|py-b",
+   "version": 3,
+   "updated_at": "2026-10-11T09:42:00.358Z",
+   "whitelist_nodes": [],
+   "peers": {
+    "n2": {
+     "ip": "10.0.0.2",
+     "port": 2,
+     "mode": "full",
+     "capabilities": [],
+     "models": [
+      "m2",
+      "m1"
+     ],
+     "writer": "py-b",
+     "updated_at": 1791711720.358
+    },
+    "commun": {
+     "ip": "10.0.0.9",
+     "port": 9,
+     "mode": "follower",
+     "capabilities": [
+      "harnessdroid"
+     ],
+     "writer": "py-b",
+     "updated_at": 1791711720.358
+    }
+   },
+   "meta": {}
+  },
+  "digest_attendu": "59210142e7fbe5e3e59e0dc68e467bc544b6322056d008bd18533f90859a43aa"
+ },
+ "whitelist": {
+  "noeuds": [
+   "kot-a",
+   "py-b",
+   "zz"
+  ],
+  "digest": "045b971da1a9a456547dd96d9a2f25a5e151b055024d9230d40e33d20d4a4073"
+ },
+ "ip_ordre": [
+  [
+   "10.0.0.2",
+   "10.0.0.10",
+   false
+  ],
+  [
+   "192.168.1.9",
+   "192.168.1.10",
+   true
+  ]
+ ],
+ "floats": [
+  [
+   1750000000.0,
+   "1750000000.0"
+  ],
+  [
+   1750000001.5,
+   "1750000001.5"
+  ],
+  [
+   0.001,
+   "0.001"
+  ],
+  [
+   1.0,
+   "1.0"
+  ],
+  [
+   100.123,
+   "100.123"
+  ]
+ ]
+}

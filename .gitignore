@@ -15,6 +15,10 @@ __pycache__/
 .venv/
 venv/
 
+# Kotlin (portage JVM)
+kotlin/build/
+kotlin/.gradle/
+
 # Android Studio / Gradle
 android/.gradle/
 android/build/
