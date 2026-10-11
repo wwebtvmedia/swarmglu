@@ -1,0 +1,144 @@
+================================================================================
+SwarmGlu — HOWTO : commandes et non-régression
+================================================================================
+Projet      : https://github.com/wwebtvmedia/swarmglu
+Prérequis   : Python 3.8+ (aucun pip) ; pour les tests Android : SDK ~/Android/Sdk
+              (émulateur + system-image android-34 google_apis x86_64), socat,
+              JDK 17+ ; pour .249 : clé SSH (ssh-copy-id youyou@192.168.1.249).
+Toute commande PC se lance depuis la racine du dépôt :  cd swarmglu
+
+--------------------------------------------------------------------------------
+1) NON-RÉGRESSION COMPLÈTE (l'ordre recommandé)
+--------------------------------------------------------------------------------
+
+a. Suite noyau — 83 tests unitaires + intégration en processus (~30 s)
+   Vérifie : whitelist/chaîne de hachage (altération, suppression, réordre),
+   élection déterministe et baux, fusion LWW commutative, passerelle,
+   pare-feu OSP v0.6, pool de savoir, crypto ML-KEM+ECDSA et consensus 1/8,
+   relais /relay, HITL, fédération en processus.
+
+       python3 -m unittest discover -s tests
+
+   Attendu : "Ran 83 tests ... OK"
+
+b. Démo de résilience automatique — 3 nœuds locaux, leader tué (~1 min)
+
+       python3 cli.py demo --nodes 3          # (5 nœuds : --nodes 5)
+
+   Attendu : "RÉSILIENCE VALIDÉE ✔" (réélection ~2-3 s, /ask servi,
+   3 chaînes d'audit INTACTES). Répertoire de travail conservé dans /tmp.
+
+c. Essaim réel 2 émulateurs Android + 1 PC (~5 min)
+   Crée/boote les AVD sg-e1/sg-e2 automatiquement (adb forward + socat).
+
+       python3 tests/test_multi_emulator_swarm.py
+
+   Attendu : "ESSAIM MULTI-ÉMULATEURS VALIDÉ ✔" (9 vérifications)
+
+d. Interop swarmknowledge + partage du savoir, 4 machines (~7 min)
+   Déploie un nœud SwarmGlu sur 192.168.1.249 (SSH), ancre une réponse sur
+   le nœud OSP vivant (:3000), vérifie le savoir partagé PARTOUT (même
+   digest sur les 4 machines), mort du leader + réélection ~6-8 s.
+
+       python3 tests/test_swarmknowledge_sharing.py --deploy-249 youyou
+
+   Attendu : "PARTAGE DE CONNAISSANCES VALIDÉ ✔"
+   (sans déploiement distant : retirer "--deploy-249 youyou")
+
+e. Multi-essaims fédérés — 2 salles, 5 machines (~8 min)
+   salle-A (pc-a + émulateur ambassadeur) / salle-B (pc-b + émulateur +
+   far-249) : Digest Exchange bilatéral, savoir CLOISONNÉ, requêtes
+   fédérées croisées, mort du leader de salle-A (réélection ~9 s) SANS
+   impact sur salle-B.
+
+       python3 tests/test_multi_swarm_federation.py --deploy-249 youyou
+
+   Attendu : "MULTI-ESSAIMS VALIDÉ ✔"
+
+f. Scénario hotspot « étendre la zone » (~7 min)
+   Routeur (émulateur) + client hotspot (émulateur, graine = routeur seul)
+   + PC + far-249 : swarmknowledge (:3000) et le nœud .249 atteints À
+   TRAVERS le relais du routeur, pas de proxy ouvert (IP publique → 403).
+
+       python3 tests/test_hotspot_scenario.py --deploy-249 youyou
+
+   Attendu : "SCÉNARIO HOTSPOT VALIDÉ ✔"
+
+g. Non-régression DANS Android (boucle complète sur émulateur/tablette)
+
+       cd android && ./gradlew connectedDebugAndroidTest
+
+   Attendu : 4/4 (bootstrap/élection, OSP VERIFIED, barrière HITL,
+   chaîne INTACTE) — un émulateur ou une tablette USB doit être visible
+   dans `adb devices`.
+
+h. TOUT EN UNE LIGNE (PC uniquement, ~10 min) :
+
+       python3 -m unittest discover -s tests && python3 cli.py demo --nodes 3
+
+--------------------------------------------------------------------------------
+2) LANCER UN NŒUD (utilisation courante)
+--------------------------------------------------------------------------------
+
+Whitelist de la classe (copier le fichier par USB sur chaque machine) :
+       python3 cli.py whitelist init --nodes pc-prof,tablette-1,tablette-2
+
+Nœud PC professeur (avec pont GGUF réel) :
+       python3 cli.py serve --node-id pc-prof --port 7001 --mode full \
+               --gguf-url http://127.0.0.1:11434 --gguf-models qwen2.5:0.5b \
+               --advertise-ip <IP-du-PC>
+
+Nœud PC élève / tablette (jamais leader) :
+       python3 cli.py serve --node-id pc-eleve --port 7001 --mode follower \
+               --peers <IP-du-prof>:7001 --advertise-ip <IP-de-ce-PC>
+
+Nœud de test local sans rien d'autre (fournisseur factice intégré) :
+       python3 cli.py serve --node-id test --port 7101 --mock-inference \
+               --beacon-port 0 --data-dir data/test
+
+Sur Android : installer l'APK, tableau de bord → interrupteur « Nœud »,
+réglages ⚙ (node-id, essaim, mode, seeds ip:port). Hotspot :
+bouton « 📺 Étendre l'essaim » (tablette réelle uniquement).
+
+--------------------------------------------------------------------------------
+3) UTILISER L'ESSAIM
+--------------------------------------------------------------------------------
+
+État d'un nœud :        python3 cli.py status --url http://<ip>:7001
+Question d'élève :      python3 cli.py ask --url http://<ip>:7001 \
+                            --prompt "..." --student eleve-1
+Fédérée (autre salle) : python3 cli.py ask --url http://<ip>:7001 \
+                            --prompt "..." --swarm salle-B
+Savoir commun :         curl http://<ip>:7001/knowledge
+Relais hotspot :        curl -X POST http://<routeur>:7001/relay \
+                            -d '{"host":"192.168.1.249","port":3000,
+                                 "path":"/osp/endpoint.json"}'
+Audit chaîne :          python3 cli.py audit verify --data-dir data/<node>
+                        python3 cli.py audit tail --data-dir data/<node> -n 20
+
+--------------------------------------------------------------------------------
+4) CRYPTO (ML-KEM + ECDSA, re-signature décentralisée 1/8)
+--------------------------------------------------------------------------------
+
+Whitelist signée :     python3 cli.py whitelist verify-signed
+Cycle de re-signature : python3 cli.py whitelist resign --url http://<ip>:7001
+Poignée de main PQ :   python3 cli.py secure-auth --url http://<ip>:7001
+
+--------------------------------------------------------------------------------
+5) BUILDS ANDROID
+--------------------------------------------------------------------------------
+
+cd android
+./gradlew assembleDebug          # APK debug (62 Mo) → app/build/outputs/apk/debug
+./gradlew bundleRelease          # AAB signé Play (30,8 Mo, keystore local)
+./gradlew connectedDebugAndroidTest   # tests instrumentés (cf. §1g)
+
+--------------------------------------------------------------------------------
+6) ACCIDENTS COURANTS
+--------------------------------------------------------------------------------
+- "pas de leader élu" en démo     : ports déjà occupés → changer --base-port
+- push refusé (401/403)           : gh auth login -h github.com && gh auth setup-git
+- hotspot impossible sur émulateur: normal (pas de radio Wi-Fi) — tablette réelle
+- tests distants .249 échouent    : vérifier ping 192.168.1.249 et le service
+  OSP : curl http://192.168.1.249:3000/osp/endpoint.json
+================================================================================
