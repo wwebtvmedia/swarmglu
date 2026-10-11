@@ -322,7 +322,7 @@ Les niveaux, unitaires :
 #    passerelle/garde anti-boucle, pare-feu OSP, + intégration en processus
 #    (élection, routage /ask, basculement après mort du leader, HITL,
 #    fédération de deux essaims).
-python3 -m unittest discover -s tests   # 78 tests (dont crypto 1/8)
+python3 -m unittest discover -s tests   # 112 tests (dont crypto 1/8)
 
 # 2) Essaim réel MULTI-ÉMULATEURS (2 Android + 1 PC, ~5 min) :
 #    crée et boote deux AVD, forme un essaim aux timings du cahier des
@@ -410,6 +410,26 @@ python3 -c "from crypto_auth import NodeCrypto; \
     import sys; c=NodeCrypto('mon-noeud', key_dir='data/mon-noeud'); \
     print('ECDSA:', c.ecdsa_pub_hex)"
 ```
+
+## 8 quinquies. Flotte complexe — LLM réels multi-sources
+
+`python3 tests/test_fleet_full.py --model fastmodel:latest` : le jour
+d'école complet — **8 à 9 nœuds** (leader Kotlin JVM, nœud Python
+fournisseur de l'**Ollama de l'école 192.168.1.194** — meilleur modèle
+chargeable auto-sélectionné, `bestmodel:latest` documenté GPU-OOM —,
+nœud SSH 192.168.1.249, nœud SSH 192.168.1.149 si réveillée, 2
+émulateurs, Note 10, tablette) avec **DEUX LLM réels** :
+
+* l'Ollama 27B de l'école (réponse réelle mesurée : « La capitale de la
+  Tunisie, c'est Tunis. » en 7,7 s via far-249) ;
+* **l'inférence llama.cpp ON-DEVICE de la tablette** : son pont OSP local
+  (Tree4Five LLM Provider, `/v1` + token lu sur l'appareil) est détecté,
+  déclaré au registre, et une question `model_hint=llmprovider` est
+  routée vers elle (« Tunisie », 31 s mesurées) ;
+* le pont OSP de l'écosystème est exercé en direct : PROPOSE →
+  `/osp/teach` → **BID compétence 0,733** (quorum q=2 documenté) ;
+* savoir commun au même digest sur tous les nœuds, failover après
+  `kill -9` du leader Kotlin, audits intègres.
 
 ## 9. Modèle de sécurité (et limites assumées du PoC)
 
