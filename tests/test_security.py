@@ -140,12 +140,33 @@ class TestChaineDeHachage(unittest.TestCase):
         open(chemin, "w", encoding="utf-8").write("\n".join(lignes) + "\n")
         self.assertFalse(self.sm.verify_chain()["ok"])
 
-    def test_journal_corrompu_bloque_écriture(self):
+    def test_corruption_intermédiaire_bloque_écriture(self):
+        """Un bloc corrompu AU MILIEU du journal : fatal (fail-safe)."""
+        for i in range(4):
+            self.sm.record_event("e%d" % i, "n", {"i": i})
         chemin = os.path.join(self.d, "audit.jsonl")
-        with open(chemin, "a", encoding="utf-8") as fh:
-            fh.write("pas du json\n")
+        lignes = open(chemin, encoding="utf-8").read().splitlines()
+        lignes[1] = "pas du json"                     # ligne 2 sur 4
+        open(chemin, "w", encoding="utf-8").write("\n".join(lignes) + "\n")
         with self.assertRaises(RuntimeError):
             SecurityManager(os.path.join(self.d, "wl.json"), chemin)
+
+    def test_queue_déchirée_réparée_au_démarrage(self):
+        """Dernière ligne tronquée par un kill : réparée + événement scellé."""
+        for i in range(4):
+            self.sm.record_event("e%d" % i, "n", {"i": i})
+        chemin = os.path.join(self.d, "audit.jsonl")
+        with open(chemin, "a", encoding="utf-8") as fh:
+            fh.write('{"seq": 5, "timestamp": "2026-10-11T')   # écriture déchirée
+        sm2 = SecurityManager(os.path.join(self.d, "wl.json"), chemin)   # répare
+        rapport = sm2.verify_chain()
+        self.assertTrue(rapport["ok"])
+        self.assertEqual(rapport["entries"], 5)  # 4 blocs + 1 événement de réparation
+        types = [b["event"]["event_type"] for b in sm2.tail(3)]
+        self.assertIn("chain_tail_repaired", types)      # réparation scellée
+        # et l'écriture reprend normalement
+        bloc = sm2.record_event("apres", "n", {})
+        self.assertEqual(bloc["seq"], 6)
 
     def test_taille_et_queue(self):
         for i in range(7):

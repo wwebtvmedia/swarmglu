@@ -35,9 +35,13 @@ class NodeDriverInstrumentation {
     fun runNode() {
         val args = InstrumentationRegistry.getArguments()
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
-        PythonBridge.appContext = ctx
+        CoreBridge.appContext = ctx
 
-        val dataDir = java.io.File(ctx.filesDir, "node-driver").absolutePath
+        // Dossier FRAIS à chaque run : un journal déchiré par un kill
+        // précédent ne doit jamais contaminer le run suivant (et l'essaim
+        // démarre d'un état neutre, comme une tablette neuve).
+        val dataDir = java.io.File(
+            ctx.filesDir, "node-driver-" + System.currentTimeMillis()).absolutePath
         val config = JSONObject().apply {
             put("node_id", args.getString("node_id") ?: "emu-node")
             put("port", (args.getString("port") ?: "7001").toInt())
@@ -66,13 +70,13 @@ class NodeDriverInstrumentation {
             put("neighbors", voisins)
         }
 
-        val demarrage = PythonBridge.nodeStart(config)
+        val demarrage = CoreBridge.nodeStart(config)
         assertTrue("démarrage du nœud pilote: $demarrage", demarrage.optBoolean("ok"))
 
         // Maintien en vie : l'orchestrateur hôte pilote le scénario via HTTP
         // (ports adb forward) et termine par am force-stop ou expiration.
         val dureeS = (args.getString("duration_s") ?: "120").toLong()
         CountDownLatch(1).await(dureeS, TimeUnit.SECONDS)
-        PythonBridge.nodeStop()
+        CoreBridge.nodeStop()
     }
 }

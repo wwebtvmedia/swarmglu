@@ -48,6 +48,8 @@ d. Essaim MIXTE Python + KOTLIN (interopérabilité câble, ~1 min)
 
        cd kotlin && ./gradlew test installDist
        cd .. && python3 tests/test_kotlin_interop.py
+       # tri-langage réel (+ Android natif émulateur, ~4 min) :
+       python3 tests/test_kotlin_interop.py --emulateur
        # tri-langage réel (+ Android émulateur, ~4 min) :
        python3 tests/test_kotlin_interop.py --emulateur
 

@@ -9,14 +9,11 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
-    id 'com.chaquo.python'
 }
 
 // ---------------------------------------------------------------------------
-// Signature de release : lue depuis keystore.properties (NON versionné —
-// voir google-play/PLAY_CHECKLIST.md §Signature). Si le fichier est absent,
-// la clé debug est utilisée : assembleDebug et assembleRelease restent
-// fonctionnels, seul l'AAB non signé importable nulle part.
+// Signature de release : keystore.properties (NON versionné — voir
+// google-play/PLAY_CHECKLIST.md). Absent -> clé debug.
 // ---------------------------------------------------------------------------
 def keystorePropsFile = rootProject.file("keystore.properties")
 def keystoreProps = new Properties()
@@ -34,8 +31,8 @@ android {
         applicationId "com.tree4five.swarmglu"
         minSdk 24          // Android 7.0 : couvre la quasi-totalité des tablettes scolales
         targetSdk 36
-        versionCode 4      // incrémenter à CHAQUE upload Play (entier strictement croissant)
-        versionName "1.1.2"
+        versionCode 5      // incrémenter à CHAQUE upload Play (entier strictement croissant)
+        versionName "2.0.0"
 
         ndk {
             // ABI supportées : tablettes ARM (32/64 bits) + émulateurs x86.
@@ -86,36 +83,9 @@ android {
     }
 }
 
-// Interpréteur Python embarqué (aucun paquet pip : stdlib pure).
-// DSL Chaquopy 16+ : bloc `chaquopy { defaultConfig { ... } }` (l'ancien
-// bloc `python {}` des versions 14/15 n'existe plus).
-chaquopy {
-    defaultConfig {
-        version = "3.11"
-        buildPython = ["python3"]  // interpréteur hôte utilisé à la construction
-    }
-}
 
-// Les modules du nœud vivent à la RACINE du dépôt SwarmGlu (source de
-// vérité unique, partagée PC/Android) : cette tâche les re-copie dans le
-// source set Python avant chaque build. `android/` peut aussi être build
-// seul : src/main/python contient déjà une copie fonctionnelle.
-task syncSwarmGluCore(type: Copy) {
-    description = "Synchronise les modules SwarmGlu depuis la racine du dépôt."
-    from rootProject.projectDir.parentFile
-    include 'security.py', 'consensus.py', 'state_manager.py',
-            'gateway.py', 'swarm_glu.py', 'android_bridge.py',
-            'crypto_auth.py', 'decentralized_resigner.py'
-    into 'src/main/python'
-}
-preBuild.dependsOn syncSwarmGluCore
 // Dépendance explicite requise par Gradle : les tâches de fusion Python
 // de Chaquopy lisent le répertoire que syncSwarmGluCore vient d'écrire.
-tasks.configureEach { t ->
-    if (t.name ==~ /merge\w*PythonSources/) {
-        t.dependsOn syncSwarmGluCore
-    }
-}
 
 dependencies {
     implementation 'androidx.core:core-ktx:1.13.1'
@@ -123,6 +93,13 @@ dependencies {
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.fragment:fragment-ktx:1.8.2'
+
+    // Phase 2 (noyau Kotlin natif) :
+    //  * NanoHTTPD : serveur HTTP du nœud (Android n'a pas com.sun.net).
+    //  * BouncyCastle : ML-KEM-768 post-quantique réel (API légère, sans
+    //    insertion de Provider — interdit au runtime Android).
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.79'
 
     // Tests instrumentés : la boucle SwarmGlu complète dans l'émulateur.
     androidTestImplementation 'androidx.test:runner:1.6.1'

@@ -38,7 +38,7 @@ class SwarmGluNodeInstrumentedTest {
         @JvmStatic
         fun demarrerNoeud() {
             val ctx = InstrumentationRegistry.getInstrumentation().targetContext
-            PythonBridge.appContext = ctx
+            CoreBridge.appContext = ctx
             val dataDir = java.io.File(
                 ctx.filesDir, "node-test-" + System.currentTimeMillis()
             ).absolutePath
@@ -56,14 +56,14 @@ class SwarmGluNodeInstrumentedTest {
                 put("allow_join", true)
                 put("log_level", "WARNING")
             }
-            val start = PythonBridge.nodeStart(config)
+            val start = CoreBridge.nodeStart(config)
             assertTrue("démarrage du nœud: $start", start.optBoolean("ok"))
         }
 
         @AfterClass
         @JvmStatic
         fun arreterNoeud() {
-            PythonBridge.nodeStop()
+            CoreBridge.nodeStop()
         }
 
         /** Attend que le consensus atteigne l'état attendu (polling 500 ms). */
@@ -71,7 +71,7 @@ class SwarmGluNodeInstrumentedTest {
             val deadline = System.currentTimeMillis() + delaiS * 1000
             var dernier = JSONObject()
             while (System.currentTimeMillis() < deadline) {
-                dernier = PythonBridge.status()
+                dernier = CoreBridge.status()
                 if (dernier.length() > 0 && !dernier.has("error") && condition(dernier)) {
                     return dernier
                 }
@@ -104,7 +104,7 @@ class SwarmGluNodeInstrumentedTest {
         // On s'assure d'abord que le leader est en place (ordre des tests).
         attendreJusquA(15) { it.optJSONObject("consensus")?.optString("role") == "leader" }
 
-        val reponse = PythonBridge.ask(
+        val reponse = CoreBridge.ask(
             "Quelle est la capitale de la Tunisie ?", "eleve-emu", "", "")
         assertEquals("échec /ask: $reponse", 200, reponse.optInt("http_status"))
         assertTrue("réponse vide", reponse.optString("answer").isNotBlank())
@@ -126,7 +126,7 @@ class SwarmGluNodeInstrumentedTest {
     fun t03_agent_barriereHumaine() {
         attendreJusquA(15) { it.optJSONObject("consensus")?.optString("role") == "leader" }
 
-        val creation = PythonBridge.agentTask(
+        val creation = CoreBridge.agentTask(
             "{\"student_id\":\"eleve-emu\",\"mcp\":{\"server\":\"harnessdroid\"," +
             "\"tool\":\"test_outil\",\"args\":{}}}")
         val task = creation.optJSONObject("task")
@@ -134,12 +134,12 @@ class SwarmGluNodeInstrumentedTest {
         assertEquals("pending_validation", task!!.optString("status"))
 
         // a) La validation lève la barrière...
-        val validation = PythonBridge.agentTaskValidate(
+        val validation = CoreBridge.agentTaskValidate(
             task.optString("task_id"), true, "enseignant-test")
         assertEquals("done", validation.optJSONObject("task").optString("status"))
 
         // b) ...et une re-validation est refusée (cycle unique).
-        val revalidation = PythonBridge.agentTaskValidate(
+        val revalidation = CoreBridge.agentTaskValidate(
             task.optString("task_id"), true, "enseignant-test")
         assertEquals(409, revalidation.optInt("http_status"))
     }
@@ -149,7 +149,7 @@ class SwarmGluNodeInstrumentedTest {
     // ------------------------------------------------------------------
     @Test
     fun t04_audit_chaineIntacte() {
-        val rapport = PythonBridge.auditVerify()
+        val rapport = CoreBridge.auditVerify()
         assertTrue("chaîne corrompue: $rapport", rapport.optBoolean("ok"))
         // node_start + election + ask + tâches => au moins 6 blocs scellés.
         assertTrue("journal trop court: ${rapport.optInt("entries")}",

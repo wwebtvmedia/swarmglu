@@ -26,8 +26,8 @@ class DashboardFragment : Fragment() {
 
     private val refresher = object : Runnable {
         override fun run() {
-            if (refreshing && PythonBridge.isRunning()) {
-                PythonBridge.onBackground({ PythonBridge.status() }) { render(it) }
+            if (refreshing && CoreBridge.isRunning()) {
+                CoreBridge.onBackground({ CoreBridge.status() }) { render(it) }
                 handler.postDelayed(this, 2000)
             }
         }
@@ -43,13 +43,13 @@ class DashboardFragment : Fragment() {
             (activity as MainActivity).showSettingsDialog()
         }
         val sw = view.findViewById<Switch>(R.id.switch_node)
-        sw.isChecked = PythonBridge.isRunning()
+        sw.isChecked = CoreBridge.isRunning()
         sw.setOnCheckedChangeListener { _, checked ->
             val act = activity as MainActivity
             if (checked) act.startNodeService() else act.stopNodeService()
             // Laisser au nœud le temps de démarrer/arrêter avant rafraîchi.
             handler.postDelayed({
-                sw.isChecked = PythonBridge.isRunning()
+                sw.isChecked = CoreBridge.isRunning()
                 startRefreshing()
             }, 1500)
         }
@@ -73,7 +73,7 @@ class DashboardFragment : Fragment() {
             val input = view.findViewById<EditText>(R.id.input_wl_node)
             val nodeId = input.text.toString().trim()
             if (nodeId.isEmpty()) return@setOnClickListener
-            PythonBridge.onBackground({ PythonBridge.whitelistAdd(nodeId) }) { res ->
+            CoreBridge.onBackground({ CoreBridge.whitelistAdd(nodeId) }) { res ->
                 flash(res.optBoolean("ok"), res.toString())
                 input.setText("")
             }

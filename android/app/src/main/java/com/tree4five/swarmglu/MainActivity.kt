@@ -28,9 +28,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // L'interpréteur Python a besoin du contexte applicatif.
-        PythonBridge.appContext = applicationContext
-
         // Android 13+ : la notification du service de premier plan exige
         // une permission explicite (demandée une fois, non bloquante).
         if (Build.VERSION.SDK_INT >= 33) {

@@ -112,7 +112,8 @@ def booter_emulateurs():
         procs[port_console] = subprocess.Popen(
             [EMULATOR, "-avd", avd, "-no-window", "-no-audio",
              "-no-boot-anim", "-gpu", "swiftshader_indirect",
-             "-no-snapshot", "-port", str(port_console), "-memory", "2560"],
+             "-no-snapshot", "-wipe-data", "-port", str(port_console),
+             "-memory", "2560"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for avd, port_console, *_ in AVDS:
         serial = "emulator-%d" % port_console

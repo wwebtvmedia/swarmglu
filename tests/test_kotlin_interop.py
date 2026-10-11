@@ -153,6 +153,11 @@ def main():
                      attendre(60, lambda: (statut(urls.get("emu-a", "")) or {})
                               .get("consensus", {}).get("leader_id") == "kot-a", pas=2),
                      (statut(urls.get("emu-a", "")) or {}).get("consensus"))
+        _s, st_android = http_json("GET", urls["emu-a"] + "/status", timeout=8)
+        verifier("Android tourne sur le NOYAU NATIF (android-kotlin-native)",
+                 (st_android or {}).get("implementation") == "android-kotlin-native"
+                 and (st_android or {}).get("crypto_mode") == "android-native",
+                 (st_android or {}).get("implementation", "nœud injoignable"))
 
         print("\n[1] convergence de l'essaim mixte (%d nœuds, %d langages)…" % (
             len(urls), 3 if avec_emulateur else 2))

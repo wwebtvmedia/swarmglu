@@ -69,7 +69,7 @@ class StateManager(val nodeId: String, var whitelist: Whitelist?) {
         }
         if (change) {
             pair.put("writer", ecrivain)
-            pair.put("updated_at", bdArrondi())
+            pair.put("updated_at", arrondi())
             pairs.put(id, pair)
             bump()
         }
@@ -80,7 +80,7 @@ class StateManager(val nodeId: String, var whitelist: Whitelist?) {
     fun toucher(id: String, vivant: Boolean = true) {
         val pairs = pairs()
         val pair = pairs.optJSONObject(id) ?: JSONObject()
-        pair.put("last_seen", bdArrondi())
+        pair.put("last_seen", arrondi())
         pair.put("alive", vivant)
         pairs.put(id, pair)
     }
@@ -281,6 +281,4 @@ class StateManager(val nodeId: String, var whitelist: Whitelist?) {
     private fun arrondi(): Double =
         Math.round(System.currentTimeMillis() / 10.0) / 1000.0 // ms -> s, 3 déc.
 
-    private fun bdArrondi(): java.math.BigDecimal =
-        java.math.BigDecimal(Json.pythonFloat(arrondi()))
 }

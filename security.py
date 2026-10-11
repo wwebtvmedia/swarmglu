@@ -299,12 +299,39 @@ class SecurityManager:
         """
         Détermine (seq, dernier_hash) depuis le journal existant.
 
-        Parcours complet au démarrage (volume PoC faible) : si le journal
-        est corrompu, on REFUSE d'écrire par-dessus — comportement
-        « fail-safe » plutôt que d'étouffer une altération.
+        Toute corruption INTERMÉDIAIRE est fatale (fail-safe). Une écriture
+        DÉCHIRÉE en fin de journal (processus tué par un kill pendant
+        l'append — observé sur émulateur) est RÉPARÉE : la ligne tronquée
+        est retirée et l'événement `chain_tail_repaired` est scellé.
         """
         report = self.verify_chain()
         if not report["ok"]:
+            # « dernier bloc réel » : dernière ligne non vide ET sans NUL
+            # (une écriture déchirée laisse souvent un trou sparse rempli
+            # de \u0000 sur PLUSIEURS lignes physiques — la réparation
+            # doit déclencher dès que la 1re ligne fautive est au-delà du
+            # dernier bloc réel, pas à la toute dernière ligne physique).
+            dernier_reel = 0
+            if os.path.exists(self.log_path):
+                for no, ligne in enumerate(open(self.log_path, encoding="utf-8"), 1):
+                    if ligne.strip() and "\x00" not in ligne:
+                        dernier_reel = no
+            if report.get("line") and report["line"] >= dernier_reel > 0:
+                bonnes = [l for no, l in enumerate(
+                    open(self.log_path, encoding="utf-8"), 1)
+                    if no < report["line"] and "\x00" not in l]
+                tmp = self.log_path + ".rep"
+                with open(tmp, "w", encoding="utf-8") as fh:
+                    fh.writelines(bonnes)
+                os.replace(tmp, self.log_path)
+                self._tail_seq, self._tail_hash = self._scan_tail()
+                self.record_event("chain_tail_repaired", "system",
+                                  {"removed_from_line": report.get("line"),
+                                   "reason": report.get("error")})
+                print("[Security] Queue de journal déchirée réparée "
+                      "(à partir de la ligne %s) — événement scellé."
+                      % report.get("line"))
+                return self._tail_seq, self._tail_hash
             raise RuntimeError(
                 "Journal '%s' corrompu (ligne %s : %s). Lancez "
                 "`python cli.py audit verify` pour diagnostiquer. "

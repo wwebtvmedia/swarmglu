@@ -46,8 +46,8 @@ class AskFragment : Fragment() {
             result.text = getString(R.string.ask_routing)
 
             // Appel au nœud (réseau potentiellement long) hors du thread UI.
-            PythonBridge.onBackground({
-                PythonBridge.ask(
+            CoreBridge.onBackground({
+                CoreBridge.ask(
                     prompt, "eleve-android",
                     inputModel.text.toString().trim(),
                     inputSwarm.text.toString().trim()

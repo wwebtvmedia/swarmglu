@@ -1,7 +1,6 @@
 // SwarmGlu — settings.gradle
-// Tous les plugins viennent de google()/mavenCentral() : Chaquopy 17 est
-// publié sur Maven Central (la machine de BUILD doit avoir Internet une
-// seule fois ; le nœud Android ainsi produit fonctionne ensuite hors-ligne).
+// Plugins depuis google()/mavenCentral() uniquement. La machine de BUILD
+// doit avoir Internet une seule fois ; l'exécution reste 100 % hors-ligne.
 
 pluginManagement {
     repositories {

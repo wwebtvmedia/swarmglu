@@ -27,12 +27,12 @@ class AuditFragment : Fragment() {
 
         view.findViewById<Button>(R.id.btn_verify).setOnClickListener {
             out.text = getString(R.string.audit_running)
-            PythonBridge.onBackground({ PythonBridge.auditVerify() }) { render(it, out) }
+            CoreBridge.onBackground({ CoreBridge.auditVerify() }) { render(it, out) }
         }
 
         view.findViewById<Button>(R.id.btn_tail).setOnClickListener {
             out.text = getString(R.string.audit_running)
-            PythonBridge.onBackground({ PythonBridge.auditTail(20) }) { renderTail(it, out) }
+            CoreBridge.onBackground({ CoreBridge.auditTail(20) }) { renderTail(it, out) }
         }
     }
 

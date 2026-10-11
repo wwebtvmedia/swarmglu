@@ -1,5 +1,20 @@
 # Changelog — SwarmGlu Android (com.tree4five.swarmglu)
 
+## 2.0.0-alpha.1 (versionCode 5) — noyau NATIF Kotlin
+
+- CHAQUOPY/PYTHON RETIRÉS : l'app embarque le noyau SwarmGlu porté en
+  Kotlin pur (core/ : Json canonique, chaîne de hachage, LWW, élection
+  par bail, NanoHTTPD) — APK **8,8 Mo** au lieu de 62 Mo.
+- CRYPTO POST-QUANTIQUE NATIVE : ECDSA P-256 (java.security) + ML-KEM-768
+  (BouncyCastle) — `/secure/handshake` et `/secure/rpc` réels sur Android,
+  fin du mode mock mobile.
+- Interopérabilité prouvée : blocs d'audit écrits par l'app vérifiés
+  bloc à bloc par le moteur Python ; essaim tri-langage réel validé
+  (Kotlin JVM + 2 Python + Android natif) avec failover croisé.
+- HITL natif : barrière de validation humaine des tâches agent portée.
+- Clé d'exemple commitée (google-play/example-keystore/, mot de passe
+  public — À CHANGER, voir son README).
+
 ## 1.1.2 (versionCode 4)
 
 - Correctif de protocole ANTI-HERMITE : un leader sans aucun follower

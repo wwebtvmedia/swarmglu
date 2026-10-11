@@ -22,10 +22,29 @@ class HashChain(chemin: String) {
 
     init {
         if (fichier.exists()) {
-            val rapport = verifier()
+            var rapport = verifier()
             if (!rapport.optBoolean("ok")) {
-                throw IllegalStateException(
-                    "Journal '${fichier.absolutePath}' corrompu (ligne ${rapport.opt("line")}): ${rapport.optString("error")}")
+                // RÉPARATION DE QUEUE : la 1re ligne fautive doit être
+                // au-delà du dernier bloc RÉEL (les NUL d'une écriture
+                // déchirée peuvent s'étaler sur plusieurs lignes physiques).
+                val lignes = fichier.readLines()
+                var dernierReel = 0
+                lignes.forEachIndexed { idx, ligne ->
+                    if (ligne.isNotBlank() && !ligne.contains('\u0000')) dernierReel = idx + 1
+                }
+                if (rapport.optInt("line") >= dernierReel && dernierReel > 0) {
+                    val bonnes = lignes.take(rapport.optInt("line") - 1)
+                        .filter { it.isNotBlank() && !it.contains('\u0000') }
+                    val tmp = File(fichier.absolutePath + ".rep")
+                    tmp.writeText(bonnes.joinToString("\n") + if (bonnes.isEmpty()) "" else "\n")
+                    java.nio.file.Files.move(
+                        tmp.toPath(), fichier.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                    rapport = verifier()
+                } else {
+                    throw IllegalStateException(
+                        "Journal '${fichier.absolutePath}' corrompu (ligne ${rapport.opt("line")}): ${rapport.optString("error")}")
+                }
             }
             seq = rapport.optInt("entries")
             dernierHash = rapport.optString("last_hash")
@@ -70,16 +89,14 @@ class HashChain(chemin: String) {
             val bloc = JSONObject()
                 .put("seq", seq + 1)
                 .put("timestamp", maintenantIso())
-                .put("request_time", bdPythonFloat(rt))
-                .put("processing_time", bdPythonFloat(pt))
+                .put("request_time", rt).put("processing_time", pt)
                 .put("previous_hash", dernierHash)
                 .put("hash", sceau)
                 .put("event", JSONObject(
                     mapOf(
                         "seq" to (seq + 1), "event_type" to type, "node_id" to nodeId,
                         "payload" to (payload ?: JSONObject()),
-                        "request_time" to bdPythonFloat(rt),
-                        "processing_time" to bdPythonFloat(pt),
+                        "request_time" to rt, "processing_time" to pt,
                     )
                 ))
             // Sérialisation CANONIQUE (jamais org.json.toString, qui

@@ -93,8 +93,8 @@ class NodeService : Service() {
         // hors du thread principal, comme l'exige Android (StrictMode).
         Thread {
             try {
-                PythonBridge.appContext = applicationContext
-                val result = PythonBridge.nodeStart(config)
+                CoreBridge.appContext = applicationContext
+                val result = CoreBridge.nodeStart(config)
                 Log.i(TAG, "Nœud démarré : $result")
             } catch (e: Exception) {
                 Log.e(TAG, "Échec du démarrage du nœud", e)
@@ -105,7 +105,7 @@ class NodeService : Service() {
     private fun stopNode() {
         Thread {
             try {
-                Log.i(TAG, "Arrêt du nœud : ${PythonBridge.nodeStop()}")
+                Log.i(TAG, "Arrêt du nœud : ${CoreBridge.nodeStop()}")
             } catch (e: Exception) {
                 Log.w(TAG, "Arrêt du nœud : ${e.message}")
             }
