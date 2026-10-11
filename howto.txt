@@ -11,7 +11,14 @@ Toute commande PC se lance depuis la racine du dépôt :  cd swarmglu
 1) NON-RÉGRESSION COMPLÈTE (l'ordre recommandé)
 --------------------------------------------------------------------------------
 
-a. Suite noyau — 83 tests unitaires + intégration en processus (~30 s)
+0. TOUT-EN-UN (recommandé) — exécute les étapes dans l'ordre, s'arrête au
+   premier échec, affiche la synthèse :
+
+       python3 run_all.py                          # rapide (~1 min)
+       python3 run_all.py --full --ssh-249 youyou  # + scénarios réseau (~25 min)
+       python3 run_all.py --android                # + tests dans Android
+
+a. Suite noyau — 112 tests unitaires + intégration en processus (~50 s)
    Vérifie : whitelist/chaîne de hachage (altération, suppression, réordre),
    élection déterministe et baux, fusion LWW commutative, passerelle,
    pare-feu OSP v0.6, pool de savoir, crypto ML-KEM+ECDSA et consensus 1/8,

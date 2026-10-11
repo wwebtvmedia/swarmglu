@@ -1,5 +1,15 @@
 # Changelog — SwarmGlu Android (com.tree4five.swarmglu)
 
+## 1.1.1 (versionCode 3)
+
+- Correctif crypto : la propriété `mode` avait avalé la fin du
+  `__init__` de NodeCrypto (clés jamais générées sur certains chemins) —
+  réparé et couvert par la suite (112 tests).
+- `/status` expose `crypto_mode` (cryptography réel vs mock) — diagnostic
+  immédiat de l'interopérabilité PQ sur chaque machine de l'essaim.
+- Test de communication multi-machines (Note 10 + tablette + émulateur +
+  192.168.1.249) intégré à la non-rgression.
+
 ## 1.1.0 (versionCode 2)
 
 - SÉCURITÉ : authentification hybride post-quantique ML-KEM-768 + ECDSA

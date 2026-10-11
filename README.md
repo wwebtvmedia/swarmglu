@@ -305,7 +305,15 @@ versionnés). Build de l'AAB : `cd android && ./gradlew bundleRelease`.
 
 ## 8 ter. Tests
 
-Trois niveaux de validation, tous exécutables en une commande :
+Tout-en-un (non-régression complète, voir `run_all.py`) :
+
+```bash
+python3 run_all.py                        # rapide : noyau + résilience (~1 min)
+python3 run_all.py --full --ssh-249 youyou  # + tous les scénarios réseau (~25 min)
+python3 run_all.py --android              # + tests dans Android (ADB)
+```
+
+Les niveaux, unitaires :
 
 ```bash
 # 1) Suite noyau (64 tests, < 25 s, sans réseau externe) :
