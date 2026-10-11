@@ -134,7 +134,45 @@ cd android
 ./gradlew connectedDebugAndroidTest   # tests instrumentés (cf. §1g)
 
 --------------------------------------------------------------------------------
-6) ACCIDENTS COURANTS
+6) GÉNÉRATION DES CLÉS
+--------------------------------------------------------------------------------
+A. Clé de signature Android (Google Play) — 2 méthodes équivalentes :
+
+   keytool (JDK) :
+       PASS=$(openssl rand -base64 24)
+       keytool -genkeypair -v \
+           -keystore android/swarmglu-release.keystore -alias swarmglu \
+           -keyalg RSA -keysize 2048 -validity 10000 -storetype PKCS12 \
+           -storepass "$PASS" -keypass "$PASS" \
+           -dname "CN=SwarmGlu, OU=Tree4Five Tools, O=Tree4Five, L=Djerba, C=TN"
+
+   openssl (alternative) :
+       openssl genrsa -out cle.pem 2048
+       openssl req -new -x509 -key cle.pem -out cert.pem -days 10000 \
+           -subj "/CN=SwarmGlu/O=Tree4Five/L=Djerba/C=TN"
+       openssl pkcs12 -export -out android/swarmglu-release.keystore \
+           -inkey cle.pem -in cert.pem -name swarmglu -passout pass:"$PASS"
+       rm cle.pem
+
+   Puis remplir android/keystore.properties :
+       storeFile=swarmglu-release.keystore
+       storePassword=<PASS>  /  keyAlias=swarmglu  /  keyPassword=<PASS>
+
+   Vérifier :  keytool -list -keystore android/swarmglu-release.keystore
+   SAUVEGARDER keystore + mot de passe hors machine (perte = plus aucune
+   mise à jour Play possible). Jamais commités (.gitignore les exclut).
+
+B. Clés des nœuds (ECDSA P-256 + ML-KEM-768, handshake /secure + 1/8) :
+   AUTOMATIQUES au premier démarrage, stockées dans
+   <data_dir>/keys_<node_id>.json. Régénérer l'identité d'un nœud :
+   arrêter le nœud, supprimer ce fichier, redémarrer. Afficher la clé
+   publique ECDSA d'un nœud :
+       python3 -c "from crypto_auth import NodeCrypto; \
+           c=NodeCrypto('mon-noeud', key_dir='data/mon-noeud'); \
+           print(c.ecdsa_pub_hex)"
+
+--------------------------------------------------------------------------------
+7) ACCIDENTS COURANTS
 --------------------------------------------------------------------------------
 - "pas de leader élu" en démo     : ports déjà occupés → changer --base-port
 - push refusé (401/403)           : gh auth login -h github.com && gh auth setup-git

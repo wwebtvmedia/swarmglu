@@ -346,6 +346,63 @@ fournisseur pendant la fenêtre de basculement (soi-même doit toujours
 compter comme vivant) et le gel du compteur de pairs vivants (rafraîchis-
 sement volatile bloqué par la porte LWW logique).
 
+## 8 quater. Génération des clés (Android & nœuds)
+
+### A. Clé de signature Android (obligatoire pour Google Play)
+
+Deux méthodes **équivalentes** (vérifiées toutes deux) — PKCS#12 dans les
+deux cas, le fichier va dans `android/` avec `keystore.properties` :
+
+**Méthode 1 — keytool (fourni avec le JDK, recommandée) :**
+
+```bash
+PASS=$(openssl rand -base64 24)        # mot de passe fort, à conserver !
+keytool -genkeypair -v \
+    -keystore android/swarmglu-release.keystore -alias swarmglu \
+    -keyalg RSA -keysize 2048 -validity 10000 -storetype PKCS12 \
+    -storepass "$PASS" -keypass "$PASS" \
+    -dname "CN=SwarmGlu, OU=Tree4Five Tools, O=Tree4Five, L=Djerba, C=TN"
+```
+
+**Méthode 2 — openssl (alternative) :**
+
+```bash
+openssl genrsa -out cle.pem 2048
+openssl req -new -x509 -key cle.pem -out cert.pem -days 10000 \
+    -subj "/CN=SwarmGlu/O=Tree4Five/L=Djerba/C=TN"
+openssl pkcs12 -export -out android/swarmglu-release.keystore \
+    -inkey cle.pem -in cert.pem -name swarmglu -passout pass:"$PASS"
+rm cle.pem                              # la clé nue ne doit pas traîner
+```
+
+Puis renseigner `android/keystore.properties` :
+
+```properties
+storeFile=swarmglu-release.keystore
+storePassword=<le mot de passe>
+keyAlias=swarmglu
+keyPassword=<le mot de passe>
+```
+
+⚠️ **Sauvegarder le keystore + le mot de passe hors machine** (clé USB) :
+jamais versionnés (déjà exclus par .gitignore), et perdus = plus AUCUNE
+mise à jour possible de l'app sur Play. Vérification :
+`keytool -list -keystore android/swarmglu-release.keystore`.
+
+### B. Clés des nœuds (ECDSA P-256 + ML-KEM-768) — automatiques
+
+Les clés cryptographiques des nœuds (authentification hybride,
+re-signature 1/8) sont **générées automatiquement** au premier démarrage
+et persistées dans `<data_dir>/keys_<node_id>.json` — rien à faire. Pour
+régénérer l'identité d'un nœud : arrêter le nœud, supprimer ce fichier,
+redémarrer. Clé publique d'un nœud (à partager pour vérification) :
+
+```bash
+python3 -c "from crypto_auth import NodeCrypto; \
+    import sys; c=NodeCrypto('mon-noeud', key_dir='data/mon-noeud'); \
+    print('ECDSA:', c.ecdsa_pub_hex)"
+```
+
 ## 9. Modèle de sécurité (et limites assumées du PoC)
 
 - **Participation** : whitelist pré-partagée hors-ligne (USB) ou
