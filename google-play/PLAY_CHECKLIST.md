@@ -17,8 +17,8 @@ humaines (compte Play Console, 25 USD une fois).
 - ✅ Icône adaptative + repli toutes densités (API 24/25).
 - ✅ Visuels de fiche : `google-play/assets/icon-512.png`,
   `feature-graphic-1024x500.png` (régénérables : `make_assets.py`).
-- ✅ `versionCode 1` / `versionName "1.0.0"` (incrémenter le code à CHAQUE
-  upload).
+- ✅ `versionCode 2` / `versionName "1.1.0"` — crypto post-quantique +
+  hotspot/relais + savoir commun (incrémenter le code à CHAQUE upload).
 
 ## 1. Compiler l'AAB signé (machine avec Android Studio + Internet au 1er build)
 

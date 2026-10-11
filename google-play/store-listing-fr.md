@@ -51,6 +51,11 @@ CARACTÉRISTIQUES
   basculement automatique en ~3 s.
 • Consensus distribué : état global versionné (epoch), synchronisation
   Last-Write-Wins validée par empreinte cryptographique.
+• Sécurité post-quantique : authentification ML-KEM-768 + ECDSA, et
+  re-signature décentralisée de la whitelist par consensus 1/8 signé —
+  aucune autorité centrale.
+• Étendre la zone : un bouton transforme la tablette en point d'accès
+  Wi-Fi routeur de l'essaim (relais sécurisé vers le réseau de l'école).
 • Passerelle inter-essaims : reliez deux salles de classe en un tap
   (nœud ambassadeur).
 • Moteur Python embarqué identique aux PC de la classe : le protocole ne

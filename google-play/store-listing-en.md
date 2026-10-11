@@ -50,6 +50,11 @@ HIGHLIGHTS
   automatic failover in ~3 s.
 • Distributed consensus: epoch-versioned global state, Last-Write-Wins
   merge validated by cryptographic digest.
+• Post-quantum security: ML-KEM-768 + ECDSA authentication and
+  decentralized whitelist re-signing via signed 1/8 consensus — no
+  central authority.
+• Extend the range: one button turns the tablet into a Wi-Fi hotspot
+  router for the swarm (secure relay to the school network).
 • Swarm-to-swarm gateway: connect two classrooms with an ambassador node.
 • The embedded Python engine is identical to the classroom PCs: the
   protocol cannot drift between devices.

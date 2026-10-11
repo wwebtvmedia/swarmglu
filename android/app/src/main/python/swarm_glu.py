@@ -1293,7 +1293,10 @@ class SwarmNode:
         """
         import ipaddress
         host = str(body.get("host", ""))
-        port = int(body.get("port", 80) or 80)
+        try:
+            port = int(body.get("port", 80) or 80)
+        except (TypeError, ValueError):
+            return 400, {"error": "port invalide", "port": body.get("port")}
         chemin = str(body.get("path", "/") or "/")
         methode = str(body.get("method", "GET") or "GET").upper()
         timeout = min(float(body.get("timeout", 30) or 30), 90.0)
