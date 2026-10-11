@@ -23,7 +23,11 @@ class NoeudAndroid(
     heartbeat: Double = 3.0,
     bail: Double = 6.0,
     val graines: List<String> = emptyList(),
+    val ggufUrl: String = "",            // pont LLM local (ex. pont OSP /v1)
+    val ggufModeles: List<String> = emptyList(),
+    val ggufToken: String = "",          // en-tête x-api-token du pont
 ) {
+    @Volatile var enVol: Int = 0         // charge courante (routage)
     val whitelist = Whitelist(cheminWhitelist)
     val chaine = HashChain("$dossierDonnees/swarm_audit.jsonl")
     val etat = StateManager(nodeId, whitelist)
@@ -48,11 +52,15 @@ class NoeudAndroid(
         etat.setWhitelistNodes(whitelist.noeuds())
         val capacites = mutableListOf("node", "inference")
         if (mode in setOf("full", "ambassador")) capacetesAdd(capacites)
-        etat.declarerSoi(capacites, listOf("mock-qwen-0.5b"))
+        // Modèles RÉELS si un pont LLM local est configuré (le routage du
+        // leader matche model_hint contre ces déclarations).
+        val modeles = if (ggufModeles.isNotEmpty()) ggufModeles
+                      else listOf("mock-qwen-0.5b")
+        etat.declarerSoi(capacites, modeles)
         val champs = HashMap<String, Any>()
         champs["ip"] = ipAnnonce; champs["port"] = portAnnonce; champs["mode"] = mode
         champs["capabilities"] = JSONArray(capacites)
-        champs["models"] = JSONArray(listOf("mock-qwen-0.5b"))
+        champs["models"] = JSONArray(modeles)
         champs["api_flavor"] = "mock"
         etat.majPair(nodeId, champs)
         etat.toucher(nodeId)
@@ -225,24 +233,16 @@ class NoeudAndroid(
             .put("entries", JSONArray(entrees))
     }
 
-    private fun surAsk(corps: JSONObject): Pair<Int, JSONObject> {
-        val t0 = System.currentTimeMillis() / 1000.0
-        val question = corps.optString("prompt")
-        if (question.isEmpty()) return 400 to JSONObject().put("error", "champ 'prompt' requis")
-        if (!corps.has("_fwd") && consensus.role != Role.LEADER && consensus.leaderId != null) {
-            etat.pairs().optJSONObject(consensus.leaderId!!)?.let { p ->
-                val transfere = JSONObject(corps.toString()).put("_fwd", 1)
-                val (s, r) = transport.post(p.optString("ip"), p.optInt("port"), "/ask", transfere, 95.0)
-                if (s == 200 && r != null) return 200 to r.put("served_by", consensus.leaderId!!)
-            }
-        }
-        val sources: JSONArray =
-            if (corps.has("sources")) corps.optJSONArray("sources") ?: JSONArray()
-            else JSONArray(listOf("osp://local/djerba-wiki", "osp://local/manuel-svt"))
-        val n = sources.length()
+    // -- /ask : réel (pont LLM local) puis repli mock -----------------------
+
+    private fun sourcesDe(corps: JSONObject): JSONArray =
+        if (corps.has("sources")) corps.optJSONArray("sources") ?: JSONArray()
+        else JSONArray(listOf("osp://local/djerba-wiki", "osp://local/manuel-svt"))
+
+    private fun ospVerdict(n: Int): JSONObject {
         val g = if (n <= 0) 0.0 else minOf(1.0, 0.4 + 0.2 * (n - 1))
         val verifie = g >= 0.30
-        val osp = JSONObject()
+        return JSONObject()
             .put("groundedness", Math.round(g * 1000.0) / 1000.0)
             .put("threshold", 0.30)
             .put("verdict", if (verifie) "VERIFIED" else "UNVERIFIED")
@@ -250,29 +250,139 @@ class NoeudAndroid(
             .put("note_osp", if (verifie) "Réponse ancrée admise dans le RAG distribué."
                 else "Pare-feu OSP : véracité ancrée insuffisante (g < 0.30). " +
                      "Réponse délivrée mais EXCLUE du RAG distribué.")
+    }
+
+    /** Scelle + partage le savoir, retourne la réponse finale. */
+    private fun repondreAsk(
+        reponse: String, modele: String, sources: JSONArray,
+        t0: Double, osp: JSONObject?, fournisseur: String = nodeId,
+    ): Pair<Int, JSONObject> {
         val ecoule = System.currentTimeMillis() / 1000.0 - t0
+        val verdict = osp ?: ospVerdict(sources.length())
         chaine.ajouter("request_routed",
-            corps.optString("student_id").ifEmpty { nodeId },
-            JSONObject().put("student_id", corps.optString("student_id"))
-                .put("prompt_sha256", Sha.hex(question))
-                .put("provider", nodeId).put("model", "mock-qwen-0.5b")
-                .put("osp", osp),
+            corpsStudentOuNode(), JSONObject()
+                .put("student_id", corpsStudentOuNode())
+                .put("prompt_sha256", Sha.hex(derniereQuestion))
+                .put("provider", fournisseur).put("model", modele)
+                .put("osp", verdict),
             processingTime = ecoule)
         var partage: JSONObject? = null
-        if (verifie) {
+        if (verdict.optBoolean("rag_eligible")) {
+            val cle = "knowledge:" + Sha.hex(derniereQuestion).take(12)
+            etat.setMeta(cle, JSONObject()
+                .put("q_sha256", Sha.hex(derniereQuestion))
+                .put("sources", sources)
+                .put("groundedness", verdict.optDouble("groundedness"))
+                .put("provider", fournisseur).put("model", modele)
+                .put("epoch", etat.doc.optInt("epoch"))
+                .put("ts", System.currentTimeMillis() / 1000.0))
+            chaine.ajouter("knowledge_shared", corpsStudentOuNode(),
+                JSONObject().put("key", cle)
+                    .put("groundedness", verdict.optDouble("groundedness")))
+            partage = JSONObject().put("knowledge_key", cle).put("shared", true)
+        }
+        return 200 to JSONObject()
+            .put("answer", reponse)
+            .put("model", modele).put("provider", fournisseur)
+            .put("sources", sources)
+            .put("processing_time", Math.round(ecoule * 1000.0) / 1000.0)
+            .put("request_time", t0)
+            .put("osp", verdict).put("epoch", etat.doc.optInt("epoch"))
+            .put("knowledge", partage ?: JSONObject.NULL)
+    }
+
+    private var derniereQuestion: String = ""
+
+    private fun corpsStudentOuNode(): String = dernierStudent.ifEmpty { nodeId }
+
+    private var dernierStudent: String = ""
+
+    private fun surAsk(corps: JSONObject): Pair<Int, JSONObject> {
+        val t0 = System.currentTimeMillis() / 1000.0
+        val question = corps.optString("prompt")
+        if (question.isEmpty()) return 400 to JSONObject().put("error", "champ 'prompt' requis")
+        derniereQuestion = question
+        dernierStudent = corps.optString("student_id")
+
+        // Délégation au leader si follower (marqueur anti-boucle absent).
+        if (!corps.has("_fwd") && consensus.role != Role.LEADER && consensus.leaderId != null) {
+            etat.pairs().optJSONObject(consensus.leaderId!!)?.let { p ->
+                val transfere = JSONObject(corps.toString()).put("_fwd", 1)
+                val (s, r) = transport.post(p.optString("ip"), p.optInt("port"),
+                                            "/ask", transfere, 95.0)
+                if (s == 200 && r != null) return 200 to r.put("served_by", consensus.leaderId!!)
+            }
+        }
+
+        val sources = sourcesDe(corps)
+        val modeleDemande = corps.optString("model_hint", "")
+        val modeleLocal = ggufModeles.firstOrNull()
+        val correspond = modeleDemande.isEmpty() || modeleLocal == null ||
+            modeleLocal.contains(modeleDemande, ignoreCase = true) ||
+            modeleDemande.contains(modeleLocal, ignoreCase = true)
+
+        // INFÉRENCE RÉELLE via le pont LLM local (ex. pont OSP /v1 de l'app
+        // Tree4Five LLM Provider) si configuré et si le modèle correspond.
+        if (ggufUrl.isNotEmpty() && correspond) {
+            val model = modeleLocal ?: "llmprovider"
+            val morceaux = ggufUrl.removePrefix("http://").removePrefix("https://").split("/")
+            val hote = morceaux[0].substringBefore(":")
+            val port = morceaux[0].substringAfter(":", "80").toInt()
+            val chemin = "/" + morceaux.drop(1).joinToString("/").ifEmpty { "v1" } +
+                if (ggufUrl.endsWith("/v1")) "/chat/completions"
+                else if (cheminContientV1(ggufUrl)) "/chat/completions" else "/api/chat"
+            val charge = JSONObject().put("model", model).put("stream", false)
+            if (chemin.endsWith("/api/chat"))
+                charge.put("messages", JSONArray().put(
+                    JSONObject().put("role", "user").put("content", question)))
+            else
+                charge.put("messages", JSONArray().put(
+                    JSONObject().put("role", "user").put("content", question)))
+            val enTetes = if (ggufToken.isNotEmpty())
+                mapOf("x-api-token" to ggufToken,
+                      "Authorization" to "Bearer $ggufToken")
+            else emptyMap()
+            enVol += 1
+            try {
+                val (s, r) = transport.post(hote, port, chemin, charge, 180.0, enTetes)
+                if (s == 200 && r != null) {
+                    val contenu = r.optJSONArray("choices")?.optJSONObject(0)
+                        ?.optJSONObject("message")?.optString("content")
+                        ?: (r.optJSONObject("message")?.optString("content")
+                            ?: r.optString("response"))
+                    if (contenu.isNotEmpty())
+                        return repondreAsk(contenu, model, sources, t0,
+                                           ospVerdict(sources.length()), nodeId)
+                }
+            } finally {
+                enVol -= 1
+            }
+        }
+
+        // REPLI mock (aucun pont configuré ou pont en échec) — toujours
+        // sourcé pour rester pédagogique.
+        val verdict = ospVerdict(sources.length())
+        val ecoule = System.currentTimeMillis() / 1000.0 - t0
+        chaine.ajouter("request_routed", dernierStudent.ifEmpty { nodeId },
+            JSONObject().put("student_id", dernierStudent)
+                .put("prompt_sha256", Sha.hex(question))
+                .put("provider", nodeId).put("model", "mock-qwen-0.5b")
+                .put("osp", verdict),
+            processingTime = ecoule)
+        var partage: JSONObject? = null
+        if (verdict.optBoolean("rag_eligible")) {
             val cle = "knowledge:" + Sha.hex(question).take(12)
             etat.setMeta(cle, JSONObject()
                 .put("q_sha256", Sha.hex(question))
-                .put("student_id", corps.optString("student_id"))
+                .put("student_id", dernierStudent)
                 .put("sources", sources)
-                .put("groundedness", osp.optDouble("groundedness"))
+                .put("groundedness", verdict.optDouble("groundedness"))
                 .put("provider", nodeId).put("model", "mock-qwen-0.5b")
                 .put("epoch", etat.doc.optInt("epoch"))
-                .put("ts", Math.round(System.currentTimeMillis() / 10.0) / 1000.0))
-            chaine.ajouter("knowledge_shared",
-                corps.optString("student_id").ifEmpty { nodeId },
+                .put("ts", System.currentTimeMillis() / 1000.0))
+            chaine.ajouter("knowledge_shared", dernierStudent.ifEmpty { nodeId },
                 JSONObject().put("key", cle)
-                    .put("groundedness", osp.optDouble("groundedness")))
+                    .put("groundedness", verdict.optDouble("groundedness")))
             partage = JSONObject().put("knowledge_key", cle).put("shared", true)
         }
         return 200 to JSONObject()
@@ -282,9 +392,11 @@ class NoeudAndroid(
             .put("sources", sources)
             .put("processing_time", Math.round(ecoule * 1000.0) / 1000.0)
             .put("request_time", t0)
-            .put("osp", osp).put("epoch", etat.doc.optInt("epoch"))
+            .put("osp", verdict).put("epoch", etat.doc.optInt("epoch"))
             .put("knowledge", partage ?: JSONObject.NULL)
     }
+
+    private fun cheminContientV1(url: String) = url.contains("/v1")
 
     /** Cycle HITL identique au Python : pending_validation -> done, unique. */
     private fun surTache(corps: JSONObject): Pair<Int, JSONObject> {

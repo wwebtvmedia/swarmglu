@@ -279,6 +279,9 @@ class StateManager(val nodeId: String, var whitelist: Whitelist?) {
     }
 
     private fun arrondi(): Double =
-        Math.round(System.currentTimeMillis() / 10.0) / 1000.0 // ms -> s, 3 déc.
+        // ms -> s avec 3 décimales (÷1000, PAS ÷10⁴ : une échelle ×10 trop
+        // petite rendait les pairs « non vivants » pour le leader JVM et
+        // cassait son routage vers les fournisseurs).
+        System.currentTimeMillis() / 1000.0
 
 }

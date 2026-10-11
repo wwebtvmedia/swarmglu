@@ -63,11 +63,15 @@ class NodeDriverInstrumentation {
             (args.getString("peers") ?: "").split(",").map { it.trim() }
                 .filter { it.isNotEmpty() }.forEach { peers.put(it) }
             put("peers", peers)
-            // Essaims voisins (mode ambassador) :Digest Exchange passerelle.
+            // Essaims voisins (mode ambassador) : Digest Exchange passerelle.
             val voisins = JSONArray()
             (args.getString("neighbors") ?: "").split(",").map { it.trim() }
                 .filter { it.isNotEmpty() }.forEach { voisins.put(it) }
             put("neighbors", voisins)
+            // PONT LLM LOCAL (ex. pont OSP /v1 de Tree4Five LLM Provider)
+            put("gguf_url", args.getString("gguf_url") ?: "")
+            put("gguf_models", args.getString("gguf_models") ?: "")
+            put("gguf_token", args.getString("gguf_token") ?: "")
         }
 
         val demarrage = CoreBridge.nodeStart(config)
@@ -76,7 +80,18 @@ class NodeDriverInstrumentation {
         // Maintien en vie : l'orchestrateur hôte pilote le scénario via HTTP
         // (ports adb forward) et termine par am force-stop ou expiration.
         val dureeS = (args.getString("duration_s") ?: "120").toLong()
+
+        // Anti-Doze : sans verrou, Android suspend le process pendant les
+        // runs longs écran éteint (téléphone tué observé en flotte réelle).
+        val pm = ctx.getSystemService(android.content.Context.POWER_SERVICE)
+            as android.os.PowerManager
+        val wake = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK,
+            "swarmglu:nodedriver")
+        wake.setReferenceCounted(false)
+        wake.acquire(dureeS * 1000L + 30_000L)
+
         CountDownLatch(1).await(dureeS, TimeUnit.SECONDS)
+        wake.release()
         CoreBridge.nodeStop()
     }
 }

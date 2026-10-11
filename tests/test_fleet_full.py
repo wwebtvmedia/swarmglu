@@ -190,10 +190,28 @@ def demarrer_far(user, llm_host, modele):
         "cd ~/swarmglu && rm -rf data-fleet wl-fleet.json && "
         "(nohup env PYTHONPATH=~/swarmglu/pylibs python3 cli.py serve "
         "--node-id far-249 --port 7905 --advertise-ip %s "
+        "--peers %s:%d "
         "--whitelist-file ~/swarmglu/wl-fleet.json --data-dir ~/swarmglu/data-fleet "
         "--mode full --beacon-port 0 --gguf-url http://%s:11434 "
         "--gguf-models %s --api-flavor ollama-chat "
-        "> ~/swarmglu/node-fleet.log 2>&1 < /dev/null &)" % (IP_LOIN, llm_host, modele))
+        "> ~/swarmglu/node-fleet.log 2>&1 < /dev/null &)" % (IP_LOIN, IP_LAN, PORT_KOT,
+                                                             llm_host, modele))
+
+
+def token_pont_osp(serie, tentatives=3):
+    """Token du pont OSP local (app com.tree4five.osp, build debug).
+    Réessaie : l'appareil peut être occupé par l'installation des APK."""
+    import re as _re
+    for _t in range(tentatives):
+        r = subprocess.run(
+            [mu.ADB, "-s", serie, "shell",
+             "run-as com.tree4five.osp sh -c 'cat shared_prefs/*.xml'"],
+            capture_output=True, text=True, timeout=30)
+        m = _re.search(r'name="token">([^<]+)', r.stdout)
+        if m:
+            return m.group(1)
+        time.sleep(2)
+    return ""
 
 
 def demarrer_telephones(urls, pilotes, leader_ip, port_leader):
@@ -218,16 +236,28 @@ def demarrer_telephones(urls, pilotes, leader_ip, port_leader):
             ["socat", "TCP-LISTEN:%d,bind=%s,fork,reuseaddr" % (port_hote, IP_LAN),
              "TCP:127.0.0.1:%d" % port_hote],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        args_pilote = [mu.ADB, "-s", serie, "shell", "am", "instrument", "-w",
+            "-e", "class", "com.tree4five.swarmglu.NodeDriverInstrumentation",
+            "-e", "node_id", node_id, "-e", "port", str(mu.PORT_EMU),
+            "-e", "advertise_ip", IP_LAN, "-e", "advertise_port", str(port_hote),
+            "-e", "peers", "%s:%d" % (IP_LAN, PORT_KOT),
+            "-e", "swarm_id", "salle-fleet",
+            "-e", "heartbeat", "3.0", "-e", "lease", "6.0", "-e", "duration_s", "900"]
+        # FOURNISSEUR LLM ON-DEVICE : pont OSP local de Tree4Five LLM
+        # Provider (/v1, modèle llmprovider, token du pont lu sur l'app).
+        token_pont = token_pont_osp(serie)   # tenté sur chaque appareil
+        if token_pont:
+            print("      %s : pont LLM local détecté (token lu) → "
+                  "fournisseur llmprovider" % node_id)
+            args_pilote += ["-e", "gguf_url", "http://127.0.0.1:8090/v1",
+                            "-e", "gguf_models", "llmprovider",
+                            "-e", "gguf_token", token_pont]
+        else:
+            print("      %s : pas de pont OSP local (token absent) — nœud simple" % node_id)
+        args_pilote += ["%s.test/androidx.test.runner.AndroidJUnitRunner" % mu.PKG]
         pilotes.append(subprocess.Popen(
-            [mu.ADB, "-s", serie, "shell", "am", "instrument", "-w",
-             "-e", "class", "com.tree4five.swarmglu.NodeDriverInstrumentation",
-             "-e", "node_id", node_id, "-e", "port", str(mu.PORT_EMU),
-             "-e", "advertise_ip", IP_LAN, "-e", "advertise_port", str(port_hote),
-             "-e", "peers", "%s:%d" % (IP_LAN, PORT_KOT),
-             "-e", "swarm_id", "salle-fleet",
-             "-e", "heartbeat", "3.0", "-e", "lease", "6.0", "-e", "duration_s", "900",
-             "%s.test/androidx.test.runner.AndroidJUnitRunner" % mu.PKG],
-            stdout=open("/tmp/sg_fleet_%s.log" % node_id, "w"), stderr=subprocess.STDOUT))
+            args_pilote, stdout=open("/tmp/sg_fleet_%s.log" % node_id, "w"),
+            stderr=subprocess.STDOUT))
         urls[node_id] = "http://127.0.0.1:%d" % port_hote
         print("      %s (%s) → %s" % (node_id, serie, urls[node_id]))
     return serie_physiques
@@ -241,16 +271,43 @@ def main():
     parseur.add_argument("--llm-host", default="192.168.1.194")
     parseur.add_argument("--llm-wait", type=int, default=900,
                          help="attente max du LLM en secondes")
+    parseur.add_argument("--model", default="fastmodel:latest",
+                         help="modèle Ollama imposé (fastmodel par défaut)")
+    parseur.add_argument("--node-149", action="store_true", default=True,
+                         help="inclure 192.168.1.149 si joignable (SSH par clé)")
+    parseur.add_argument("--ip-149", default="192.168.1.149")
     args = parseur.parse_args()
 
     # 0) préflight
     if not attendre_llm(args.llm_host, args.llm_wait):
         print("LLM indisponible — test abandonné (relancez quand la machine revient)")
         return 2
-    modele, reponse_probe = meilleur_modele(args.llm_host)
-    if not verifier("meilleur modèle sélectionné : %s" % modele,
-                    modele is not None):
-        return 2
+    if args.model:
+        # Modèle IMPOSÉ (ex. fastmodel:latest — léger et rapide) : sonde
+        # unique d'inférence réelle, sans parcours de repli.
+        try:
+            corps = json.dumps({"model": args.model, "stream": False,
+                                "messages": [{"role": "user",
+                                              "content": "Réponds en UNE phrase : "
+                                                         "capitale de la Tunisie ?"}]}).encode()
+            req = urllib.request.Request("http://%s:11434/api/chat" % args.llm_host,
+                                         data=corps, method="POST",
+                                         headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=420) as rep:
+                d = json.loads(rep.read())
+            contenu = (d.get("message") or {}).get("content", "").strip()
+            if not verifier("modèle imposé %s répond « %s »" % (args.model, contenu[:90]),
+                            bool(contenu), d.get("error")):
+                return 2
+            modele = args.model
+        except Exception as exc:
+            verifier("modèle imposé %s joignable" % args.model, False, str(exc)[:120])
+            return 2
+    else:
+        modele, reponse_probe = meilleur_modele(args.llm_host)
+        if not verifier("meilleur modèle sélectionné : %s" % modele,
+                        modele is not None):
+            return 2
     token = ""
     try:
         for ligne in open("/home/pc/sby/whatsapp-bot/.env", encoding="utf-8"):
@@ -269,15 +326,42 @@ def main():
             "emu-a": "http://127.0.0.1:%d" % PORTS_EMU[0],
             "emu-b": "http://127.0.0.1:%d" % PORTS_EMU[1]}
 
+    # --- nœud .149 (conditionnel : machine école qui peut dormir) ---
+    ip149 = args.ip_149
+    joignable_149 = subprocess.run(["ping", "-c", "1", "-W", "2", ip149],
+                                   capture_output=True).returncode == 0
+    if args.node_149:
+        if not joignable_149:
+            print("  ○ %s injoignable (machine école endormie) — nœud omis, "
+                  "scénario poursuivi sans lui" % ip149)
+        else:
+            ssh149_ok = subprocess.run(
+                ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
+                 "youyou@%s" % ip149, "true"], capture_output=True).returncode == 0
+            if ssh149_ok:
+                subprocess.run(["bash", "-c",
+                    "cd %s && tar czf - --exclude=.git --exclude=android "
+                    "--exclude=data --exclude=__pycache__ --exclude=kotlin *.py | "
+                    "ssh -o BatchMode=yes youyou@%s "
+                    "'mkdir -p ~/swarmglu && tar xzf - -C ~/swarmglu'" % (RACINE, ip149)],
+                    capture_output=True)
+                subprocess.Popen(["ssh", "-o", "BatchMode=yes", "youyou@%s" % ip149,
+                    "cd ~/swarmglu && rm -rf data-149 wl-149.json && "
+                    "(nohup python3 cli.py serve --node-id node-149 --port 7906 "
+                    "--advertise-ip %s --peers %s:%d "
+                    "--whitelist-file ~/swarmglu/wl-149.json --data-dir ~/swarmglu/data-149 "
+                    "--mode full --beacon-port 0 "
+                    "> ~/swarmglu/node-149.log 2>&1 < /dev/null &)" % (ip149, IP_LAN, PORT_KOT)],
+                    capture_output=True)
+                urls["node-149"] = "http://%s:7906" % ip149
+                print("      node-149 (%s) déployé et lancé" % ip149)
+            else:
+                print("  ○ %s joignable mais SSH refusé — nœud omis" % ip149)
+
     procs, pilotes = [], []
     dossier = tempfile.mkdtemp(prefix="sgfleet_")
     try:
-        print("\n[1] équipement .249 et démarrage des nœuds PC…")
-        equiper_249_crypto(user)
-        deployer_far(user)
-        demarrer_far(user, args.llm_host, modele)
-        verifier("far-249 démarré (LLM %s, modèle %s)" % (args.llm_host, modele),
-                 attendre(30, lambda: statut(urls["far-249"]) is not None, pas=2))
+        print("\n[1] démarrage du leader Kotlin puis des nœuds PC…")
         procs.append(subprocess.Popen(
             [BIN := os.path.join(RACINE, "kotlin", "build", "install",
                                  "swarmglu-kotlin", "bin", "swarmglu-kotlin"),
@@ -303,6 +387,17 @@ def main():
         verifier("py-llm rejoint le leader Kotlin (fournisseur %s)" % modele,
                  attendre(15, lambda: (statut(urls["py-llm"]) or {})
                           .get("consensus", {}).get("leader_id") == "kot-a", pas=0.5))
+
+        # far-249 APRÈS un leader confirmé (sinon : course de bootstrap,
+        # far-249 s'auto-élit et gagne le tirage → désordre d'epochs)
+        equiper_249_crypto(user)
+        deployer_far(user)
+        demarrer_far(user, args.llm_host, modele)
+        verifier("far-249 démarré (LLM %s, modèle %s)" % (args.llm_host, modele),
+                 attendre(30, lambda: statut(urls["far-249"]) is not None, pas=2))
+        verifier("far-249 rejoint le leader Kotlin",
+                 attendre(20, lambda: (statut(urls["far-249"]) or {})
+                          .get("consensus", {}).get("leader_id") == "kot-a", pas=1))
 
         print("\n[2] Android : 2 émulateurs + téléphones physiques…")
         mu.creer_avds(); mu.booter_emulateurs(); mu.installer_et_forwarder()
@@ -363,8 +458,10 @@ def main():
                                            "http://%s:3000/osp/endpoint.json" % IP_LOIN]},
                               timeout=300)
         reponse = (r or {}).get("answer", "")
-        verifier("/ask depuis %s → servie par le LLM RÉEL" % tel,
-                 status == 200 and "Tunis" in reponse, (status, reponse[:200]))
+        verifier("/ask depuis %s → servie par le LLM RÉEL (fournisseur %s)"
+                 % (tel, (r or {}).get("provider")),
+                 status == 200 and "Tunis" in reponse
+                 and not reponse.startswith("[mock"), (status, reponse[:200]))
         if status == 200:
             print("      réponse réelle : « %s » (%.1f s, fournisseur %s)"
                   % (reponse[:120], time.time() - t0, r.get("provider")))
@@ -376,6 +473,30 @@ def main():
                      min(savoir(u)["count"] for u in urls.values()) >= 1
                      and len({savoir(u)["digest"] for u in urls.values()}) == 1), pas=4),
                  {n: savoir(u) for n, u in urls.items()})
+
+        # QUESTION DEUX : inférence ON-DEVICE de la TABLETTE
+        print("\n[4 bis] question routée vers le LLM ON-DEVICE de la tablette…")
+        tab = ("tel-" + telephones[0][-4:].lower()) if telephones else None
+        _s, st_tab = http_json("GET", urls.get(tab, urls["emu-a"]) + "/status", timeout=8)
+        modeles_tab = []
+        for p in (st_tab or {}).get("peers", []):
+            if "llmprovider" in p.get("models", []):
+                modeles_tab = p.get("models", [])
+        if modeles_tab:
+            t1 = time.time()
+            status, r2 = http_json("POST", urls[tel] + "/ask",
+                {"student_id": "eleve-fleet",
+                 "prompt": "Réponds en un mot : quelle est la capitale de la Tunisie ?",
+                 "model_hint": "llmprovider"}, timeout=300)
+            verifier("question ON-DEVICE (llmprovider, inférence llama.cpp sur "
+                     "la tablette) → routée et servie",
+                     status == 200 and (r2 or {}).get("provider", "").startswith("tel-")
+                     and (r2 or {}).get("osp", {}).get("verdict") is not None, r2)
+            if status == 200:
+                print("      réponse on-device : « %s » (%.1f s)"
+                      % ((r2 or {}).get("answer", "")[:100], time.time() - t1))
+        else:
+            print("  ○ pont LLM de la tablette absent — phase on-device notée")
 
         # pont OSP réel
         print("\n[5] pont OSP (question via /osp/query signée)…")

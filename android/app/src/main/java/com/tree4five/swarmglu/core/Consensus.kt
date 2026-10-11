@@ -433,8 +433,9 @@ class ConsensusManager(
 /** Client HTTP JSON minimal (java.net — aucun dépendance). */
 class HttpJson {
     fun post(ip: String, port: Int, chemin: String, corps: JSONObject?,
-             delai: Double = 5.0): Pair<Int, JSONObject?> {
-        return executer("POST", ip, port, chemin, corps, delai)
+             delai: Double = 5.0, enTetes: Map<String, String> = emptyMap()
+    ): Pair<Int, JSONObject?> {
+        return executer("POST", ip, port, chemin, corps, delai, enTetes)
     }
 
     fun get(ip: String, port: Int, chemin: String, delai: Double = 5.0): Pair<Int, JSONObject?> {
@@ -442,7 +443,9 @@ class HttpJson {
     }
 
     private fun executer(methode: String, ip: String, port: Int, chemin: String,
-                         corps: JSONObject?, delai: Double): Pair<Int, JSONObject?> {
+                         corps: JSONObject?, delai: Double,
+                         enTetes: Map<String, String> = emptyMap()
+    ): Pair<Int, JSONObject?> {
         return try {
             val url = java.net.URL("http://$ip:$port$chemin")
             val cnx = url.openConnection() as java.net.HttpURLConnection
@@ -451,6 +454,7 @@ class HttpJson {
             cnx.readTimeout = (delai * 1000).toInt()
             cnx.doOutput = corps != null
             cnx.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            for ((k, v) in enTetes) cnx.setRequestProperty(k, v)
             if (corps != null) cnx.outputStream.use { it.write(corps.toString().toByteArray()) }
             val reponse = try {
                 cnx.inputStream.bufferedReader().readText()

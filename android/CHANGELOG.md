@@ -15,6 +15,21 @@
 - Clé d'exemple commitée (google-play/example-keystore/, mot de passe
   public — À CHANGER, voir son README).
 
+## 2.0.0-alpha.2 (versionCode 6) — nœud LLM on-device
+
+- Le noyau Android devient FOURNISSEUR D'INFÉRENCE RÉEL : quand le pont
+  OSP local de Tree4Five LLM Provider est présent (/v1, llama.cpp
+  on-device), l'app le déclare au registre (modèle `llmprovider`) et
+  sert les requêtes `model_hint=llmprovider` par inférence llama.cpp
+  réelle sur l'appareil (31 s mesurées pour une réponse courte).
+- Réparation de queue de journal robuste aux trous sparse multi-lignes
+  (NUL) dans les trois noyaux ; corruption intermédiaire toujours fatale.
+- Validé en flotte réelle : 8-9 nœuds (Kotlin JVM + 2 Python dont .249 +
+  .149 conditionnel + 2 émulateurs + Note 10 + tablette-LLM), questions
+  réelles servies par l'Ollama 27B de l'école ET par l'inférence
+  on-device de la tablette, savoir partagé au même digest, failover,
+  audits intègres.
+
 ## 1.1.2 (versionCode 4)
 
 - Correctif de protocole ANTI-HERMITE : un leader sans aucun follower

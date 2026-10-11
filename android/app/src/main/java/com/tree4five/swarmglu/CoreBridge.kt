@@ -38,7 +38,12 @@ object CoreBridge {
                         "$dossier/whitelist.json"),
                     heartbeat = config.optDouble("heartbeat_interval", 3.0),
                     bail = config.optDouble("lease_timeout", 6.0),
-                    graines = graines)
+                    graines = graines,
+                    ggufUrl = config.optString("gguf_url", ""),
+                    // Le pilote transmet une chaîne « a,b » (comme peers).
+                    ggufModeles = config.optString("gguf_models", "").split(",")
+                        .map { it.trim() }.filter { it.isNotEmpty() },
+                    ggufToken = config.optString("gguf_token", ""))
                 n.demarrer()
                 noeud = n
                 JSONObject().put("ok", true).put("node_id", n.nodeId)

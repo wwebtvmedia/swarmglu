@@ -227,6 +227,39 @@ class NoeudKotlin(
                 if (s == 200 && r != null) return 200 to r.put("served_by", consensus.leaderId!!)
             }
         }
+        // LEADER : routage vers le MEILLEUR fournisseur (correspondance de
+        // model_hint d'abord, puis charge) — jamais de mock si un pair
+        // d'inférence est vivant (le mock n'est que le dernier repli).
+        if (consensus.role == Role.LEADER) {
+            val suggestion = corps.optString("model_hint", "")
+            data class Candidat(val id: String, val p: JSONObject,
+                                val match: Int, val charge: Int)
+            val fenetre = config.heartbeat * 3
+            val candidats = etat.pairsVivants(fenetre)
+                .filter { it.first != nodeId && "inference" in (it.second.optJSONArray("capabilities")?.let { a -> List(a.length()) { a.getString(it) } } ?: emptyList()) }
+                .map { (id, p) ->
+                    val modeles = p.optJSONArray("models")?.let { a -> List(a.length()) { a.getString(it) } } ?: emptyList()
+                    val correspond = suggestion.isNotEmpty() && modeles.any {
+                        it.contains(suggestion, true) || suggestion.contains(it, true)
+                    }
+                    Candidat(id, p, if (correspond) 0 else 1, p.optInt("inflight", 0))
+                }
+                .sortedWith(compareBy({ it.match }, { it.charge }, { it.id }))
+            for (c in candidats) {
+                val transfere = JSONObject(corps.toString()).put("_fwd", 1)
+                val (s, r) = transport.post(c.p.optString("ip"), c.p.optInt("port"),
+                                            "/ask", transfere, 180.0)
+                if (s == 200 && r != null && r.optString("answer").isNotEmpty()) {
+                    chaine.ajouter("request_routed",
+                        corps.optString("student_id").ifEmpty { nodeId },
+                        JSONObject().put("prompt_sha256", Sha.hex(question))
+                            .put("provider", c.id).put("model", r.optString("model"))
+                            .put("osp", r.optJSONObject("osp") ?: JSONObject()),
+                        processingTime = System.currentTimeMillis() / 1000.0 - t0)
+                    return 200 to r.put("provider", c.id)
+                }
+            }
+        }
 
         // Sources ancrées : celles de la requête, sinon corpus local.
         val sources: JSONArray =

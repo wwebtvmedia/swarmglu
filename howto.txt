@@ -52,6 +52,9 @@ d. Essaim MIXTE Python + KOTLIN (interopérabilité câble, ~1 min)
        python3 tests/test_kotlin_interop.py --emulateur
        # TÉLÉPHONES PHYSIQUES USB (détection auto, ~3 min) :
        python3 tests/test_real_devices_swarm.py
+       # FLOTTE COMPLÈTE ~9 nœuds (2 émulateurs + téléphones + PC + .249
+       # + .149 si réveillée), LLM RÉEL .194 + LLM ON-DEVICE tablette :
+       python3 tests/test_fleet_full.py --model fastmodel:latest
        # tri-langage réel (+ Android émulateur, ~4 min) :
        python3 tests/test_kotlin_interop.py --emulateur
 
