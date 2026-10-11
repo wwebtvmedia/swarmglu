@@ -62,6 +62,8 @@ class ConsensusManager(
 
     // ------------------------------------------------------------------
 
+    private var prochaineSondeErmite = 0.0
+
     private fun tickLeader(maintenant: Double) {
         etat.toucher(nodeId)
         if (maintenant >= prochainBattement) {
@@ -70,6 +72,39 @@ class ConsensusManager(
             for ((id, _) in candidatsVivants()) {
                 if (id == nodeId) continue
                 adresse(id)?.let { transport.post(it.first, it.second, "/leader-beat", corps, 2.0) }
+            }
+        }
+        // ANTI-HERMITE : leader sans AUCUN follower -> re-probe des graines ;
+        // un leader découvert est plus légitime -> abdication (guérison de
+        // partition, miroir du correctif Python).
+        if (prochaineSondeErmite <= 0.0) {
+            prochaineSondeErmite = maintenant + maxOf(3.0, 3 * config.bail)
+        }
+        if (maintenant >= prochaineSondeErmite && candidatsVivants().none { it.first != nodeId }) {
+            prochaineSondeErmite = maintenant + maxOf(3.0, 3 * config.bail)
+            sonderCommeErmite()
+        }
+    }
+
+    private fun sonderCommeErmite() {
+        val corps = JSONObject()
+            .put("node_id", nodeId).put("ip", identite.getString("ip"))
+            .put("port", identite.getInt("port"))
+            .put("mode", identite.optString("mode", "full"))
+            .put("capabilities", JSONArray(etat.capacitesPropres()))
+            .put("models", JSONArray(etat.modelesPropres()))
+        for (idPaire in etat.pairs().keySet()) {
+            if (idPaire == nodeId) continue
+            val p = etat.pairs().getJSONObject(idPaire)
+            val ip = p.optString("ip"); val port = p.optInt("port", 0)
+            if (ip.isEmpty() || port <= 0) continue
+            val (s, rep) = transport.post(ip, port, "/join", corps, 2.0)
+            if (s == 200 && rep != null && rep.optString("leader_id").isNotEmpty()
+                && rep.optString("leader_id") != nodeId) {
+                chaine.ajouter("hermit_rejoined", nodeId, JSONObject()
+                    .put("discovered_leader", rep.getString("leader_id")))
+                abdiquer(rep)
+                return
             }
         }
     }

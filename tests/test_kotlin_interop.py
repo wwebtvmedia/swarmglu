@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SwarmGlu — ESSAIM MIXTE PYTHON ↔ KOTLIN (interopérabilité câble réelle).
-===========================================================
-1 nœud Kotlin (JVM) + 2 nœuds Python forment UN essaim : élection
-déterministe trans-langage, requêtes /ask, savoir commun, mort du leader
-(failover croisé), audit — chacun vérifiant l'AUTRE langue.
+SwarmGlu — ESSAIM MIXTE MULTI-LANGAGE (interopérabilité câble réelle).
+=====================================================================
+1 nœud Kotlin (JVM) + 2 nœuds Python (+ 1 nœud ANDROID émulateur avec
+--emulateur → essaim TRI-LANGAGE : Kotlin JVM + Python PC + Python
+Android/Chaquopy) forment UN essaim : élection déterministe
+trans-langage, requêtes /ask, savoir commun, mort du leader (failover
+croisé), audit — chaque langue vérifiant les autres.
 
-Topologie (127.0.0.1, heartbeats accélérés) :
-    py-1 (Python, 7301) ◄──► kot-a (Kotlin, 7302) ◄──► py-2 (Python, 7303)
-    clés identiques des deux côtés (ipVersEntier == ip_to_sort_int,
-    golden) → leader = plus petit node_id : « kot-a ».
+Topologie (heartbeats accélérés ; avec --emulateur, le nœud Android
+rejoint via le LAN hôte) :
+    py-1 (Python PC, 7301) ◄──► kot-a (Kotlin JVM, 7302) ◄──► py-2 (PC, 7303)
+                                 └──► emu-a (Python Android, socat 17001)
 
-Usage :  python3 tests/test_kotlin_interop.py   (prérequis : cd kotlin &&
-         ./gradlew installDist)
+Usage :  python3 tests/test_kotlin_interop.py [--emulateur]
+         (prérequis : cd kotlin && ./gradlew installDist)
 """
 import os
 import subprocess
@@ -39,6 +41,12 @@ def http_json(methode, url, corps=None, timeout=15.0):
     return mu.http_json(methode, url, corps, timeout)
 
 
+def ipLanHote() -> str:
+    sys.path.insert(0, RACINE)
+    from swarm_glu import detect_local_ip
+    return detect_local_ip()
+
+
 def statut(url):
     _s, p = http_json("GET", url + "/status", timeout=6)
     return p if p and "consensus" in p else None
@@ -58,9 +66,41 @@ def attendre(delai, f, pas=0.5):
     return False
 
 
+def demarrer_emulateur(urls, pilotes):
+    """Nœud ANDROID (émulateur) : APK + forward/socat + NodeDriver.
+    Rejoint le Kotlin via l'IP LAN de l'hôte (le slirp route le LAN)."""
+    import shutil
+    sys.path.insert(0, RACINE)
+    from swarm_glu import detect_local_ip
+    ip_lan = detect_local_ip()
+    avd, console, port_hote, _ = mu.AVDS[0]
+    mu.AVDS[:] = [(avd, console, port_hote, "emu-a")]
+    mu.creer_avds(); mu.booter_emulateurs(); mu.installer_et_forwarder()
+    if not shutil.which("socat"):
+        raise SystemExit("socat requis pour l'émulateur")
+    subprocess.Popen(
+        ["socat", "TCP-LISTEN:%d,bind=%s,fork,reuseaddr" % (port_hote, ip_lan),
+         "TCP:127.0.0.1:%d" % port_hote],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(1.0)
+    args = [mu.ADB, "-s", "emulator-%d" % console, "shell", "am", "instrument", "-w",
+            "-e", "class", "com.tree4five.swarmglu.NodeDriverInstrumentation",
+            "-e", "node_id", "emu-a", "-e", "port", str(mu.PORT_EMU),
+            "-e", "advertise_ip", ip_lan, "-e", "advertise_port", str(port_hote),
+            "-e", "peers", "%s:7302" % ip_lan, "-e", "swarm_id", "salle-mixte",
+            "-e", "heartbeat", "0.6", "-e", "lease", "1.2", "-e", "duration_s", "180",
+            "%s.test/androidx.test.runner.AndroidJUnitRunner" % mu.PKG]
+    pilotes.append(subprocess.Popen(args, stdout=open("/tmp/sg_mix_emu.log", "w"),
+                                    stderr=subprocess.STDOUT))
+    urls["emu-a"] = "http://127.0.0.1:%d" % port_hote
+    print("      emu-a (Android) → %s" % urls["emu-a"])
+
+
 def main():
+    avec_emulateur = "--emulateur" in sys.argv
     if not os.access(BIN_KOTLIN, os.X_OK):
         raise SystemExit("nœud Kotlin absent : cd kotlin && ./gradlew installDist")
+    pilotes_emu = []
 
     urls = {"py-1": "http://127.0.0.1:7301",
             "kot-a": "http://127.0.0.1:7302",
@@ -71,7 +111,7 @@ def main():
         # Le nœud KOTLIN démarre le premier (seed pour py-2 ; py-1 solitaire)
         procs.append(subprocess.Popen(
             [BIN_KOTLIN, "--node-id", "kot-a", "--port", "7302",
-             "--advertise-ip", "127.0.0.1", "--mode", "full",
+             "--advertise-ip", ipLanHote(), "--mode", "full",
              "--data-dir", os.path.join(dossier, "kot"),
              "--whitelist-file", os.path.join(dossier, "wl-kot.json"),
              "--heartbeat", str(HB), "--lease", str(LEASE)],
@@ -106,14 +146,23 @@ def main():
                  attendre(10, lambda: (statut(urls["py-2"]) or {})
                           .get("consensus", {}).get("leader_id") == "kot-a", pas=0.5))
 
-        print("\n[1] convergence de l'essaim mixte (1 Kotlin + 2 Python)…")
+        if avec_emulateur:
+            print("\n[0 bis] nœud Android (émulateur)…")
+            demarrer_emulateur(urls, pilotes_emu)
+            verifier("emu-a (Android) rejoint le leader Kotlin",
+                     attendre(60, lambda: (statut(urls.get("emu-a", "")) or {})
+                              .get("consensus", {}).get("leader_id") == "kot-a", pas=2),
+                     (statut(urls.get("emu-a", "")) or {}).get("consensus"))
+
+        print("\n[1] convergence de l'essaim mixte (%d nœuds, %d langages)…" % (
+            len(urls), 3 if avec_emulateur else 2))
         def converges():
             etats = {}
             for n, u in urls.items():
                 e = statut(u)
                 if e:
                     etats[n] = e
-            if len(etats) != 3:
+            if len(etats) != len(urls):
                 return False, etats
             leaders = {e["consensus"]["leader_id"] for e in etats.values()}
             roles = sum(1 for e in etats.values() if e["consensus"]["role"] == "leader")
@@ -155,11 +204,12 @@ def main():
         leader = next(iter(etats.values()))["consensus"]["leader_id"]
         proc_leader = procs[1] if leader == "py-1" else (procs[0] if leader == "kot-a" else procs[2])
         proc_leader.kill(); proc_leader.wait()
-        survivants = {n: u for n, u in urls.items() if n != leader}
+        survivants = {n: u for n, u in urls.items()
+                      if n != leader and statut(u) is not None}
         t0 = time.time()
         ok = verifier("réélection chez les survivants (epoch > ancien)",
                       attendre(20, lambda: (
-                          lambda etats2: len(etats2) == 2
+                          lambda etats2: len(etats2) == len(survivants)
                           and len({e["consensus"]["leader_id"] for e in etats2.values()}) == 1
                           and all(e["consensus"]["epoch"] >
                                   (etats.get(leader) or {}).get("consensus", {}).get("epoch", 0)
@@ -181,6 +231,11 @@ def main():
                 n, "Kotlin" if n == "kot-a" else "Python"), bool(v and v.get("ok")), v)
 
     finally:
+        for p in pilotes_emu:
+            if p.poll() is None:
+                p.terminate()
+        if avec_emulateur:
+            mu.nettoyer(None, [])
         for p in procs:
             if p.poll() is None:
                 p.terminate()

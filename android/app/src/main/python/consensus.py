@@ -122,6 +122,7 @@ class ConsensusManager:
         self._next_beat = 0.0
         self._next_join_attempt = 0.0
         self._proclaim_at: Optional[float] = None
+        self._next_hermit_probe = 0.0
         self._started_at = time.time()
 
     # ------------------------------------------------------------------
@@ -172,8 +173,42 @@ class ConsensusManager:
             self._next_beat = now + self.config.heartbeat_interval
             self._broadcast_leader_beat()
 
+        # ANTI-HERMITE : un leader sans AUCUN follower connu re-probe ses
+        # graines/pairs ; s'il découvre un leader légitime, il abdique.
+        # Guérit les partitions nées d'une race de bootstrap (auto-élection
+        # avant la réussite du join) sans intervention humaine.
+        if self._next_hermit_probe <= 0:
+            self._next_hermit_probe = now + max(3.0, 3 * self.config.lease_timeout)
+        if now >= self._next_hermit_probe and not self._alive_peer_ids():
+            self._next_hermit_probe = now + max(3.0, 3 * self.config.lease_timeout)
+            self._probe_as_hermit()
+
         # Fauchage des followers muets (présumés morts -> journalisés).
         self._reap_dead_peers(now)
+
+    def _probe_as_hermit(self) -> None:
+        """Leader isolé : frappe les adresses connues ; si un leader répond,
+        il est plus légitime (essaim existant) -> abdication."""
+        for pid, peer in list(self.state.peers.items()):
+            if pid == self.node_id:
+                continue
+            ip, port = peer.get("ip"), int(peer.get("port", 0) or 0)
+            if not ip or not port:
+                continue
+            body = {"node_id": self.node_id, "ip": self.identity["ip"],
+                    "port": self.identity["port"], "mode": self.identity.get("mode", "full"),
+                    "capabilities": self.state.self_capabilities(),
+                    "models": self.state.self_models()}
+            try:
+                status, reply = self.transport.post(ip, port, "/join", body, timeout=2.0)
+            except Exception:
+                continue
+            if status == 200 and reply and reply.get("leader_id")                     and reply["leader_id"] != self.node_id:
+                self.security.record_event(
+                    "hermit_rejoined", self.node_id,
+                    {"discovered_leader": reply["leader_id"], "epoch": self.epoch})
+                self._step_down(reply)
+                return
 
     def _follower_tick(self, now: float) -> None:
         # Rafraîchit SA PROPRE vivacité au registre local : sans cela, un

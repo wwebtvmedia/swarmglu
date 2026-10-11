@@ -1,5 +1,14 @@
 # Changelog — SwarmGlu Android (com.tree4five.swarmglu)
 
+## 1.1.2 (versionCode 4)
+
+- Correctif de protocole ANTI-HERMITE : un leader sans aucun follower
+  re-probe ses graines et abdique devant un leader légitime — les
+  partitions de bootstrap guérissent seules (événement hermit_rejoined).
+- Validé en essaim TRI-LANGAGE réel : Kotlin JVM (leader) + 2 Python PC
+  + Android (Chaquopy) — savoir commun partagé aux 4 nœuds, failover
+  croisé ~2 s, audits intègres.
+
 ## 1.1.1 (versionCode 3)
 
 - Correctif crypto : la propriété `mode` avait avalé la fin du

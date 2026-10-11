@@ -48,6 +48,8 @@ d. Essaim MIXTE Python + KOTLIN (interopérabilité câble, ~1 min)
 
        cd kotlin && ./gradlew test installDist
        cd .. && python3 tests/test_kotlin_interop.py
+       # tri-langage réel (+ Android émulateur, ~4 min) :
+       python3 tests/test_kotlin_interop.py --emulateur
 
 e. Essaim réel 2 émulateurs Android + 1 PC (~5 min)
    Crée/boote les AVD sg-e1/sg-e2 automatiquement (adb forward + socat).
