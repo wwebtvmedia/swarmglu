@@ -455,6 +455,7 @@ class HttpJson {
             cnx.doOutput = corps != null
             cnx.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             for ((k, v) in enTetes) cnx.setRequestProperty(k, v)
+            for ((k, v) in enTetes) cnx.setRequestProperty(k, v)
             if (corps != null) cnx.outputStream.use { it.write(corps.toString().toByteArray()) }
             val reponse = try {
                 cnx.inputStream.bufferedReader().readText()

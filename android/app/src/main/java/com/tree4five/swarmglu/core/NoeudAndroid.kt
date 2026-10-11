@@ -462,9 +462,13 @@ class NoeudAndroid(
             .put("error", "relais limité aux réseaux privés (RFC1918/loopback)")
         val chemin = corps.optString("path", "/")
         val methode = corps.optString("method", "GET").uppercase()
+        val enTetesRelais = HashMap<String, String>()
+        corps.optJSONObject("headers")?.let { h ->
+            for (k in cles(h)) enTetesRelais[k] = h.optString(k)
+        }
         val (statut, reponse) = if (methode == "POST")
             transport.post(hote, portCible, chemin,
-                corps.optJSONObject("body") ?: JSONObject(), 30.0)
+                corps.optJSONObject("body") ?: JSONObject(), 30.0, enTetesRelais)
         else if (methode == "GET") transport.get(hote, portCible, chemin, 30.0)
         else return 400 to JSONObject().put("error", "methode GET ou POST uniquement")
         chaine.ajouter("relayed", nodeId, JSONObject()

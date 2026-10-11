@@ -157,12 +157,14 @@ class HttpTransport:
     """
 
     def post(self, ip: str, port: int, path: str, body: Dict[str, Any],
-             timeout: float = 5.0) -> Tuple[int, Optional[Dict[str, Any]]]:
+             timeout: float = 5.0,
+             headers: Optional[Dict[str, str]] = None
+             ) -> Tuple[int, Optional[Dict[str, Any]]]:
         url = "http://%s:%s%s" % (ip, port, path)
         data = json.dumps(body).encode("utf-8")
-        req = urllib.request.Request(
-            url, data=data, method="POST",
-            headers={"Content-Type": "application/json; charset=utf-8"})
+        entetes = {"Content-Type": "application/json; charset=utf-8"}
+        entetes.update(headers or {})
+        req = urllib.request.Request(url, data=data, method="POST", headers=entetes)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.status, self._parse(resp.read())
@@ -171,11 +173,13 @@ class HttpTransport:
         except Exception:
             return 0, None  # injoignable / timeout
 
-    def get(self, ip: str, port: int, path: str,
-            timeout: float = 5.0) -> Tuple[int, Optional[Dict[str, Any]]]:
+    def get(self, ip: str, port: int, path: str, timeout: float = 5.0,
+            headers: Optional[Dict[str, str]] = None
+            ) -> Tuple[int, Optional[Dict[str, Any]]]:
         url = "http://%s:%s%s" % (ip, port, path)
+        req = urllib.request.Request(url, headers=headers or {})
         try:
-            with urllib.request.urlopen(url, timeout=timeout) as resp:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.status, self._parse(resp.read())
         except urllib.error.HTTPError as exc:
             return exc.code, self._parse(exc.read())
@@ -1318,9 +1322,11 @@ class SwarmNode:
             return 400, {"error": "adresse IP littérale requise", "host": host}
 
         t0 = time.time()
+        enTetes = body.get("headers") or {}
         if methode == "POST":
             status, reponse = self.transport.post(
-                host, port, chemin, body.get("body") or {}, timeout=timeout)
+                host, port, chemin, body.get("body") or {}, timeout=timeout,
+                headers=enTetes)
         elif methode == "GET":
             status, reponse = self.transport.get(host, port, chemin, timeout=timeout)
         else:
