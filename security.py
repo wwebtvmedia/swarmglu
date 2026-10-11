@@ -158,34 +158,65 @@ class SecurityManager:
 
     def is_node_allowed(self, node_id: str) -> bool:
         """Vérifie si un nœud figure dans la liste blanche active."""
-        return node_id in self.whitelist_doc.get("nodes", [])
+        return node_id in self.nodes()
 
     def nodes(self) -> List[str]:
-        return list(self.whitelist_doc.get("nodes", []))
+        raw = self.whitelist_doc.get("nodes", [])
+        out: List[str] = []
+        for n in raw:
+            if isinstance(n, str):
+                out.append(n)
+            elif isinstance(n, dict) and "node_id" in n:
+                out.append(n["node_id"])
+        return out
 
-    def add_node(self, node_id: str, approved_by: str = "local-admin") -> bool:
+    def add_node(
+        self,
+        node_id: str,
+        approved_by: str = "local-admin",
+        ecdsa_pub: str = "",
+        mlkem_pub: str = "",
+    ) -> bool:
         """
         Ajoute un nœud à la whitelist (approbation locale ou consensus du
         Leader). Retourne True si la liste a changé.
         """
         with self._lock:
             nodes = self.whitelist_doc.setdefault("nodes", [])
-            if node_id in nodes:
+            current_nodes = self.nodes()
+            if node_id in current_nodes:
+                if ecdsa_pub or mlkem_pub:
+                    info = self.whitelist_doc.setdefault("approved", {}).setdefault(node_id, {})
+                    if ecdsa_pub:
+                        info["ecdsa_pub"] = ecdsa_pub
+                    if mlkem_pub:
+                        info["mlkem_pub"] = mlkem_pub
+                    self._save_whitelist()
                 return False
             nodes.append(node_id)
-            self.whitelist_doc.setdefault("approved", {})[node_id] = {
+            info = {
                 "by": approved_by,
                 "at": now_iso(),
             }
+            if ecdsa_pub:
+                info["ecdsa_pub"] = ecdsa_pub
+            if mlkem_pub:
+                info["mlkem_pub"] = mlkem_pub
+            self.whitelist_doc.setdefault("approved", {})[node_id] = info
             self._save_whitelist()
             return True
 
     def remove_node(self, node_id: str) -> bool:
         with self._lock:
             nodes = self.whitelist_doc.get("nodes", [])
-            if node_id not in nodes:
+            current_nodes = self.nodes()
+            if node_id not in current_nodes:
                 return False
-            nodes.remove(node_id)
+            # Supprime de la liste (que ce soit une chaîne ou un dict)
+            self.whitelist_doc["nodes"] = [
+                n for n in nodes
+                if (n != node_id if isinstance(n, str) else n.get("node_id") != node_id)
+            ]
             self.whitelist_doc.get("approved", {}).pop(node_id, None)
             self._save_whitelist()
             return True
@@ -204,6 +235,61 @@ class SecurityManager:
     def whitelist_digest(self) -> str:
         """Empreinte SHA-256 de la liste triée (comparaison de digests)."""
         return sha256_hex(canonical_json(sorted(self.nodes())))
+
+    def get_signed_whitelist(self) -> Optional[Dict[str, Any]]:
+        """Retourne la whitelist cryptographiquement signée si présente."""
+        return self.whitelist_doc.get("signed_whitelist")
+
+    def apply_signed_whitelist(
+        self,
+        signed_doc: Dict[str, Any],
+        known_keys: Optional[Dict[str, str]] = None,
+        active_nodes_count: Optional[int] = None,
+    ) -> Tuple[bool, str]:
+        """
+        Valide et applique une whitelist signée avec preuve de consensus 1/8.
+        """
+        from crypto_auth import AuthenticatedWhitelist
+
+        ok, reason = AuthenticatedWhitelist.verify_signed_doc(
+            signed_doc, known_keys, active_nodes_count
+        )
+        if not ok:
+            return False, reason
+
+        with self._lock:
+            new_nodes: List[str] = []
+            for n in signed_doc.get("nodes", []):
+                nid = n if isinstance(n, str) else n.get("node_id")
+                if nid and nid not in new_nodes:
+                    new_nodes.append(nid)
+                    if isinstance(n, dict):
+                        info = self.whitelist_doc.setdefault("approved", {}).setdefault(nid, {})
+                        if n.get("ecdsa_pub"):
+                            info["ecdsa_pub"] = n["ecdsa_pub"]
+                        if n.get("mlkem_pub"):
+                            info["mlkem_pub"] = n["mlkem_pub"]
+                        info.setdefault("by", f"resigner:{signed_doc.get('signer_node_id')}")
+                        info.setdefault("at", signed_doc.get("resigned_at", now_iso()))
+
+            self.whitelist_doc["version"] = signed_doc.get("version", 2)
+            self.whitelist_doc["nodes"] = new_nodes
+            self.whitelist_doc["signed_whitelist"] = signed_doc
+            self._save_whitelist()
+
+        return True, "Whitelist re-signée appliquée avec succès"
+
+    def verify_current_signed_whitelist(
+        self,
+        known_keys: Optional[Dict[str, str]] = None,
+        active_nodes_count: Optional[int] = None,
+    ) -> Tuple[bool, str]:
+        """Vérifie la validité de la whitelist signée actuelle."""
+        signed = self.get_signed_whitelist()
+        if not signed:
+            return False, "Aucune whitelist signée présente"
+        from crypto_auth import AuthenticatedWhitelist
+        return AuthenticatedWhitelist.verify_signed_doc(signed, known_keys, active_nodes_count)
 
     # ------------------------------------------------------------------
     # Chaîne de hachage immuable

@@ -287,6 +287,9 @@ class ConsensusManager:
             "capabilities": self.state.self_capabilities(),
             "models": self.state.self_models(),
         }
+        for k in ("ecdsa_pub", "mlkem_pub", "uptime_s", "requests_count"):
+            if k in self.identity:
+                body[k] = self.identity[k]
         try:
             status, reply = self.transport.post(addr[0], addr[1], "/heartbeat", body, timeout=2.0)
             if status == 200 and reply:
@@ -553,12 +556,16 @@ class ConsensusManager:
                 }
 
         # Enregistrement dans le registre partagé (champs logiques).
-        self.state.update_peer(node_id, {
+        peer_data = {
             "ip": ip, "port": port,
             "mode": body.get("mode", "full"),
             "capabilities": body.get("capabilities", []),
             "models": body.get("models", []),
-        })
+        }
+        for k in ("ecdsa_pub", "mlkem_pub", "uptime_s", "requests_count", "joined_at"):
+            if k in body:
+                peer_data[k] = body[k]
+        self.state.update_peer(node_id, peer_data)
         self.state.touch_peer(node_id, alive=True)
         self.security.record_event(
             "peer_registered", node_id,
@@ -612,13 +619,17 @@ class ConsensusManager:
             return 403, {"error": "nœud non whitelisté",
                          "leader_addr": self._leader_addr_str()}
 
-        self.state.update_peer(node_id, {
+        peer_data = {
             "ip": body.get("ip") or sender_ip,
             "port": int(body.get("port", 0)),
             "mode": body.get("mode", "full"),
             "capabilities": body.get("capabilities", []),
             "models": body.get("models", []),
-        })
+        }
+        for k in ("ecdsa_pub", "mlkem_pub", "uptime_s", "requests_count"):
+            if k in body:
+                peer_data[k] = body[k]
+        self.state.update_peer(node_id, peer_data)
         self.state.touch_peer(node_id, alive=True)
 
         if self.role == Role.LEADER:

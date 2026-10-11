@@ -45,6 +45,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 from consensus import ConsensusConfig, ConsensusManager
+from crypto_auth import NodeCrypto, WeightedLottery
+from decentralized_resigner import DecentralizedResigner
 from gateway import SwarmGateway
 from security import SecurityManager, canonical_json, sha256_hex
 from state_manager import StateManager, SwarmSynchronizer
@@ -87,6 +89,8 @@ class NodeConfig:
         task_ttl: float = 300.0,
         infer_timeout: float = 90.0,
         sync_interval: float = 5.0,
+        resign_interval: float = 30.0,
+        enable_resigning: bool = True,
         log_level: str = "INFO",
     ):
         self.node_id = node_id
@@ -116,6 +120,8 @@ class NodeConfig:
         self.task_ttl = task_ttl
         self.infer_timeout = infer_timeout
         self.sync_interval = sync_interval
+        self.resign_interval = resign_interval
+        self.enable_resigning = enable_resigning
         self.log_level = log_level
 
 
@@ -521,11 +527,26 @@ class SwarmNode:
             whitelist_path=config.whitelist_file,
             log_path=os.path.join(config.data_dir, "swarm_audit.jsonl"))
 
+        # Authentification asymétrique hybride post-quantique (ML-KEM + ECDSA)
+        self.started_at = time.time()
+        self.request_count = 0
+        self.crypto = NodeCrypto(self.node_id, key_dir=os.path.join(config.data_dir, "keys"))
+        self.identity["ecdsa_pub"] = self.crypto.ecdsa_pub_hex
+        self.identity["mlkem_pub"] = self.crypto.mlkem_pub_hex
+        self.identity["uptime_s"] = 0.0
+        self.identity["requests_count"] = 0
+        self.secure_sessions: Dict[str, bytes] = {}
+
         # Auto-enrôlement : sans whitelist préchargée, un premier nœud doit
         # bien pouvoir démarrer (zéro SPOF) — trace explicite dans l'audit.
         if not self.security.is_node_allowed(self.node_id):
             if config.allow_join:
-                self.security.add_node(self.node_id, approved_by="self-bootstrap")
+                self.security.add_node(
+                    self.node_id,
+                    approved_by="self-bootstrap",
+                    ecdsa_pub=self.crypto.ecdsa_pub_hex,
+                    mlkem_pub=self.crypto.mlkem_pub_hex,
+                )
             # (sinon : le nœud tourne mais refusera tout pair non whitelisté ;
             #  il attend une whitelist copiée par USB.)
 
@@ -541,6 +562,9 @@ class SwarmNode:
         self.tasks = TaskManager(self, ttl=config.task_ttl)
         self.beacon = BeaconService(self, config.beacon_port,
                                     interval=config.heartbeat_interval)
+        self.resigner = DecentralizedResigner(
+            self, interval=config.resign_interval, enabled=config.enable_resigning
+        )
 
         # Déclaration de capacités locales (pont GGUF / agent MCP).
         capabilities: List[str] = ["node"]
@@ -560,6 +584,11 @@ class SwarmNode:
             "capabilities": capabilities, "models": models,
             "api_flavor": self.state._self_info.get("api_flavor"),
             "base_url": self.state._self_info.get("base_url"),
+            "ecdsa_pub": self.crypto.ecdsa_pub_hex,
+            "mlkem_pub": self.crypto.mlkem_pub_hex,
+            "uptime_s": 0.0,
+            "requests_count": 0,
+            "joined_at": self.started_at,
         })
         self.state.set_whitelist_nodes(self.security.nodes())
 
@@ -576,7 +605,6 @@ class SwarmNode:
                 log.warning("seed invalide ignoré: %s", seed)
 
         self.server: Optional[ThreadingHTTPServer] = None
-        self.started_at = time.time()
 
     # ------------------------------------------------------------------
     # Cycle de vie
@@ -595,6 +623,7 @@ class SwarmNode:
         self.gateway.start()
         self.tasks.start()
         self.beacon.start()
+        self.resigner.start()
         log.info("Nœud '%s' démarré sur %s:%d (mode %s, essaim '%s')",
                  self.node_id, self.identity["ip"], self.config.port,
                  self.config.mode, self.config.swarm_id)
@@ -602,7 +631,7 @@ class SwarmNode:
     def stop(self) -> None:
         self.security.record_event("node_shutdown", self.node_id,
                                    {"uptime_s": round(time.time() - self.started_at, 1)})
-        for svc in (self.beacon, self.tasks, self.gateway, self.synchronizer, self.consensus):
+        for svc in (self.beacon, self.tasks, self.gateway, self.synchronizer, self.consensus, self.resigner):
             try:
                 svc.stop()
             except Exception:
@@ -654,6 +683,13 @@ class SwarmNode:
         prompt = body.get("prompt", "")
         model_hint = body.get("model_hint", "")
         t0 = time.time()
+        self.request_count += 1
+        self.identity["requests_count"] = self.request_count
+        self.identity["uptime_s"] = round(time.time() - self.started_at, 1)
+        self.state.update_peer(self.node_id, {
+            "requests_count": self.request_count,
+            "uptime_s": self.identity["uptime_s"],
+        })
 
         if self.config.mock_inference:
             answer = ("[mock] Voici une réponse ancrée de démonstration à : « %s ». "
@@ -734,6 +770,13 @@ class SwarmNode:
         """
         t0 = time.time()
         request_time = t0
+        self.request_count += 1
+        self.identity["requests_count"] = self.request_count
+        self.identity["uptime_s"] = round(time.time() - self.started_at, 1)
+        self.state.update_peer(self.node_id, {
+            "requests_count": self.request_count,
+            "uptime_s": self.identity["uptime_s"],
+        })
 
         # 1) Fédération inter-essaims (sauf si la requête nous est déjà
         #    transférée : marqueur _fwd anti-boucle).
@@ -885,6 +928,12 @@ class SwarmNode:
             "gateway_neighbors": self.gateway.neighbors(),
             "tasks": self.tasks.summary(),
             "uptime_s": round(time.time() - self.started_at, 1),
+            "requests_count": self.request_count,
+            "crypto": {
+                "ecdsa_pub": self.crypto.ecdsa_pub_hex,
+                "mlkem_pub": self.crypto.mlkem_pub_hex,
+            },
+            "signed_whitelist": self.security.get_signed_whitelist() is not None,
         }
 
     def h_join(self, body, headers, params, query):
@@ -984,6 +1033,154 @@ class SwarmNode:
 
     def h_whitelist_approve(self, body, headers, params, query):
         return self.h_whitelist_proposal(body, headers, params, query)
+
+    def h_whitelist_consensus_select(self, body, headers, params, query):
+        """
+        Sollicitation pour le consensus 1/8 :
+        Le nœud désigné par la sélection pondérée demande l'accord du pair
+        pour vérifier et re-signer la whitelist.
+        """
+        candidate_id = body.get("candidate_id", "")
+        epoch = body.get("epoch", 1)
+        uptime_s = body.get("uptime_s", 1.0)
+        requests_count = body.get("requests_count", 0)
+        ts = body.get("timestamp", 0)
+        sig = body.get("signature", "")
+        all_metrics = body.get("all_metrics", {})
+
+        if not candidate_id:
+            return 400, {"error": "candidate_id requis"}
+
+        # Vérifier que le candidat est autorisé dans la whitelist
+        if not self.security.is_node_allowed(candidate_id):
+            return 403, {"error": "Nœud candidat non autorisé dans la whitelist"}
+
+        # Clé publique du candidat
+        cand_pub = (all_metrics.get(candidate_id, {}).get("ecdsa_pub")
+                    or self.state.peers.get(candidate_id, {}).get("ecdsa_pub"))
+        if cand_pub:
+            msg = "CONSENSUS_PROPOSAL:%s:%s:%s" % (candidate_id, epoch, ts)
+            if not NodeCrypto.verify_signature(msg, sig, cand_pub):
+                return 400, {"error": "Signature de proposition invalide"}
+
+        # Vérifier la validité des probabilités pondérées si métriques fournies
+        if all_metrics:
+            probs = WeightedLottery.compute_probabilities(all_metrics)
+            if candidate_id not in probs:
+                return 400, {"error": "Candidat absent des probabilités pondérées"}
+
+        # Émission du vote d'accord 1/8 signé avec notre clé ECDSA
+        voter_ts = round(time.time(), 3)
+        vote_msg = "SWARM_1_8_VOTE:%s:%s:%s:%s" % (epoch, candidate_id, self.node_id, voter_ts)
+        vote_sig = self.crypto.sign(vote_msg)
+
+        self.security.record_event(
+            "whitelist_consensus_vote_granted", self.node_id,
+            {"candidate": candidate_id, "epoch": epoch}
+        )
+
+        return 200, {
+            "ok": True,
+            "vote": "agree",
+            "voter_id": self.node_id,
+            "voter_ecdsa_pub": self.crypto.ecdsa_pub_hex,
+            "timestamp": voter_ts,
+            "signature": vote_sig,
+        }
+
+    def h_whitelist_resign(self, body, headers, params, query):
+        """
+        Diffusion d'une nouvelle whitelist re-signée avec preuve de consensus 1/8.
+        """
+        signed_doc = body.get("signed_whitelist")
+        if not signed_doc:
+            return 400, {"error": "signed_whitelist requis"}
+
+        known_keys = {self.node_id: self.crypto.ecdsa_pub_hex}
+        for pid, p in self.state.peers.items():
+            if p.get("ecdsa_pub"):
+                known_keys[pid] = p["ecdsa_pub"]
+
+        total_nodes = len(self.state.alive_peers())
+        ok, reason = self.security.apply_signed_whitelist(
+            signed_doc, known_keys=known_keys, active_nodes_count=total_nodes
+        )
+        if not ok:
+            return 400, {"error": "Rejet de la whitelist re-signée: %s" % reason}
+
+        self.security.record_event(
+            "whitelist_resigned_accepted", self.node_id,
+            {"signer": signed_doc.get("signer_node_id"),
+             "epoch": signed_doc.get("epoch"),
+             "nodes_count": len(self.security.nodes())}
+        )
+        return 200, {"ok": True, "digest": self.security.whitelist_digest()}
+
+    def h_whitelist_trigger_resign(self, body, headers, params, query):
+        """Déclenche manuellement un cycle de sélection, consensus 1/8 et re-signature."""
+        force_self = bool(body.get("force_self", True))
+        seed = body.get("seed")
+        result = self.resigner.run_cycle(force_self=force_self, seed=seed)
+        return 200, result
+
+    def h_whitelist_signed(self, body, headers, params, query):
+        """Retourne la version signée actuelle de la whitelist."""
+        signed = self.security.get_signed_whitelist()
+        if not signed:
+            return 404, {"error": "Aucune whitelist signée présente"}
+        return 200, {
+            "ok": True,
+            "signed_whitelist": signed,
+            "digest": self.security.whitelist_digest(),
+        }
+
+    def h_secure_handshake(self, body, headers, params, query):
+        """
+        Poignée de main asymétrique hybride post-quantique (ML-KEM-768 + ECDSA).
+        Permet l'authentification mutuelle et la négociation d'une clé de session partagée.
+        """
+        msg_type = body.get("type")
+        if msg_type == "handshake_init":
+            sender_id = body.get("sender_id", "")
+            try:
+                resp_payload, session_key = self.crypto.respond_handshake(body)
+                self.secure_sessions[sender_id] = session_key
+                self.security.record_event(
+                    "secure_handshake_established", self.node_id,
+                    {"peer": sender_id, "post_quantum": "ML-KEM-768", "auth": "ECDSA-P256"}
+                )
+                return 200, resp_payload
+            except Exception as exc:
+                return 400, {"error": "Handshake refusé : %s" % exc}
+        return 400, {"error": "Type de handshake invalide"}
+
+    def h_secure_rpc(self, body, headers, params, query):
+        """
+        Exécution d'une commande via le canal sécurisé ML-KEM + ECDSA.
+        """
+        sender_id = body.get("sender_id", "")
+        encrypted_payload = body.get("payload", "")
+        session_key = self.secure_sessions.get(sender_id)
+        if not session_key:
+            return 401, {"error": "Session non authentifiée (faire handshake au préalable)"}
+        try:
+            raw_bytes = self.crypto.decrypt_payload(session_key, encrypted_payload)
+            req = json.loads(raw_bytes.decode("utf-8"))
+            action = req.get("action", "ping")
+            if action == "ping":
+                reply_data = {"status": "ok", "action": "pong", "ts": time.time()}
+            elif action == "get_whitelist":
+                reply_data = {
+                    "nodes": self.security.nodes(),
+                    "digest": self.security.whitelist_digest(),
+                    "signed": self.security.get_signed_whitelist() is not None,
+                }
+            else:
+                reply_data = {"status": "ok", "action": action, "echo": req}
+            enc_reply = self.crypto.encrypt_payload(session_key, json.dumps(reply_data))
+            return 200, {"status": "ok", "sender_id": self.node_id, "payload": enc_reply}
+        except Exception as exc:
+            return 400, {"error": "Erreur RPC sécurisé : %s" % exc}
 
     def h_agent_task(self, body, headers, params, query):
         """Création d'une tâche agent — stockée chez le leader."""
@@ -1126,6 +1323,12 @@ ROUTES: Dict[Tuple[str, str], str] = {
     ("POST", "/agent/result"): "h_agent_result",
     ("POST", "/gateway/sync"): "h_gateway_sync",
     ("POST", "/gateway/ask"): "h_gateway_ask",
+    ("POST", "/secure/handshake"): "h_secure_handshake",
+    ("POST", "/secure/rpc"): "h_secure_rpc",
+    ("POST", "/whitelist/consensus-select"): "h_whitelist_consensus_select",
+    ("POST", "/whitelist/resign"): "h_whitelist_resign",
+    ("POST", "/whitelist/trigger-resign"): "h_whitelist_trigger_resign",
+    ("GET", "/whitelist/signed"): "h_whitelist_signed",
 }
 
 REGEX_ROUTES = [

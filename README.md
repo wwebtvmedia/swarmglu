@@ -198,16 +198,52 @@ digest de whitelist), événements scellés `gateway_exchange`. Une requête
 `--swarm salle-2` est alors routée via l'ambassadeur connu (garde
 anti-boucle : 2 sauts max).
 
+## 7 bis. Authentification asymétrique (ML-KEM + ECDSA) et re-signature décentralisée
+
+Pour renforcer la sécurité contre l'usurpation et garantir un système **totalement décentralisé** sans autorité centrale permanente, SwarmGlu intègre une couche d'authentification asymétrique hybride post-quantique et un consensus 1/8 :
+
+1. **Connexion sécurisée hybride (ML-KEM + ECDSA)** :
+   - **ECDSA** (SECP256R1 / NIST P-256) : signature numérique des requêtes, preuves de consensus et whitelists.
+   - **ML-KEM** (ML-KEM-768 / NIST FIPS 203) : mécanisme d'encapsulation de clé post-quantique (KEM) assurant la confidentialité persistante face à l'ordinateur quantique.
+   - Poignée de main mutuelle (`/secure/handshake`) et dérivation d'une clé de session symétrique de 256 bits via HKDF-SHA256 pour les échanges chiffrés (`/secure/rpc`).
+
+2. **Sélection aléatoire pondérée (Ancienneté + Volume de requêtes)** :
+   - Périodiquement ou à la demande, un nœud est sélectionné aléatoirement pour vérifier et re-signer l'intégralité de la whitelist.
+   - La probabilité de sélection d'un nœud $i$ est directement proportionnelle à son temps dans l'essaim ($T_i$) et à son nombre de requêtes traitées ($R_i$) :
+     $$W_i = \max(T_i, 1.0) \times (R_i + 1)$$
+     $$P(i) = \frac{W_i}{\sum_k W_k}$$
+   - Les nœuds les plus anciens et les plus actifs ont une probabilité accrue d'être choisis, garantissant la légitimité tout en conservant une sélection ouverte et probabiliste.
+
+3. **Consensus 1/8** :
+   - Avant de pouvoir re-signer la whitelist, le nœud sélectionné doit obtenir l'approbation d'au moins **1/8 (12,5 %)** des nœuds actifs de l'essaim :
+     $$\text{Quorum} = \max\left(1, \left\lceil \frac{N}{8} \right\rceil\right)$$
+   - Chaque accord fait l'objet d'un vote signé numériquement par le pair (`POST /whitelist/consensus-select`).
+   - Une fois le quorum 1/8 obtenu, le nœud vérifie les pairs, génère la nouvelle whitelist, la scelle avec sa signature ECDSA et sa preuve de consensus 1/8, et la diffuse à tout l'essaim (`POST /whitelist/resign`).
+
+```bash
+# Vérifier l'état de la whitelist signée
+python3 cli.py whitelist verify-signed
+
+# Déclencher manuellement un cycle de re-signature décentralisée
+python3 cli.py whitelist resign --url http://127.0.0.1:7001
+
+# Tester le handshake asymétrique ML-KEM + ECDSA
+python3 cli.py secure-auth --url http://127.0.0.1:7001
+```
+
 ## 8. Architecture et modules
 
 | Fichier | Rôle |
 |---|---|
-| `security.py` | `SecurityManager` : whitelist dynamique, horodatage précis, chaîne de hachage immuable + `verify_chain()` |
+| `crypto_auth.py` | `NodeCrypto`, `WeightedLottery`, `Consensus18Verifier`, `AuthenticatedWhitelist` : ML-KEM-768, ECDSA P-256, HKDF, AES-GCM, tirage pondéré, consensus 1/8 |
+| `decentralized_resigner.py` | `DecentralizedResigner` : coordination de la sélection aléatoire, sollicitation du consensus 1/8, vérification des nœuds et re-signature |
+| `decentralized_resigner.py` | Re-signature décentralisée de la whitelist : loterie pondérée (ancienneté × requêtes), consensus 1/8 signé |
+| `security.py` | `SecurityManager` : whitelist dynamique et signée, horodatage précis, chaîne de hachage immuable + `verify_chain()` |
 | `consensus.py` | `ConsensusManager` : élection par bail (heartbeats 3 s, bail 6 s), déclaration/résolution de conflits déterministe (IP la plus basse, puis node_id), failover automatique |
 | `state_manager.py` | `StateManager` + `SwarmSynchronizer` : état global versionné par `epoch`, fusion LWW commutative validée par hash, anti-entropie périodique |
 | `gateway.py` | `SwarmGateway` : digest exchange inter-essaims, registre de voisins (TTL 90 s), routage fédéré borné |
-| `swarm_glu.py` | Serveur HTTP d'orchestration, routage d'inférence (pont GGUF Ollama/OpenAI), pare-feu OSP v0.6 (g ≥ 0.30), tâches MCP HarnessDroid avec HITL, beacon UDP |
-| `cli.py` | Interface complète : `serve`, `status`, `ask`, `audit`, `whitelist`, `demo` |
+| `swarm_glu.py` | Serveur HTTP d'orchestration, endpoints sécurisés ML-KEM/ECDSA, re-signature décentralisée, pare-feu OSP v0.6, tâches MCP, beacon UDP |
+| `cli.py` | Interface complète : `serve`, `status`, `ask`, `audit`, `whitelist`, `secure-auth`, `demo` |
 | `android_bridge.py` | Pont Chaquopy : le nœud complet piloté depuis l'UI Kotlin |
 | `android/` | Application `com.tree4five.swarmglu` (tableau de bord, écran élève, audit) |
 
@@ -215,7 +251,7 @@ anti-boucle : 2 sauts max).
 
 | Route | Description |
 |---|---|
-| `GET /health`, `GET /status` | état du nœud / instantané complet |
+| `GET /health`, `GET /status` | état du nœud / instantané complet (incluant métriques crypto et requêtes) |
 | `POST /join` | enregistrement (whitelist ou approbation leader) |
 | `POST /heartbeat`, `/leader-beat`, `/leader-announce` | consensus par bail |
 | `GET /registry`, `/state/digest` · `POST /state/sync` | synchronisation LWW |
@@ -223,6 +259,12 @@ anti-boucle : 2 sauts max).
 | `POST /infer` · `POST /provider/register` | pont GGUF local |
 | `POST /agent/task` · `/agent/task/{id}/validate` · `/agent/dispatch` | MCP + HITL |
 | `POST /whitelist/proposal` · `/approve` | approbation par le leader |
+| `POST /secure/handshake` | poignée de main asymétrique hybride post-quantique (ML-KEM + ECDSA) |
+| `POST /secure/rpc` | appel RPC authentifié et chiffré via la clé de session ML-KEM |
+| `POST /whitelist/consensus-select` | sollicitation du vote d'accord pour le consensus 1/8 |
+| `POST /whitelist/resign` | diffusion et application de la whitelist re-signée avec consensus 1/8 |
+| `POST /whitelist/trigger-resign` | déclenchement du cycle de sélection et re-signature décentralisée |
+| `GET /whitelist/signed` | consultation de la whitelist signée actuelle et de sa preuve de consensus |
 | `POST /gateway/sync` · `/gateway/ask` | passerelle inter-essaims |
 | `GET /knowledge` | **savoir commun** : réponses VERIFIED partagées à tout l'essaim (count + digest) |
 | `GET /audit/verify` · `/audit/tail?n=` | chaîne de hachage |
@@ -247,7 +289,7 @@ Trois niveaux de validation, tous exécutables en une commande :
 #    passerelle/garde anti-boucle, pare-feu OSP, + intégration en processus
 #    (élection, routage /ask, basculement après mort du leader, HITL,
 #    fédération de deux essaims).
-python3 -m unittest discover -s tests
+python3 -m unittest discover -s tests   # 78 tests (dont crypto 1/8)
 
 # 2) Essaim réel MULTI-ÉMULATEURS (2 Android + 1 PC, ~5 min) :
 #    crée et boote deux AVD, forme un essaim aux timings du cahier des
@@ -263,7 +305,14 @@ python3 tests/test_multi_emulator_swarm.py
 #    python3 tests/test_swarmknowledge_sharing.py --deploy-249 <user>
 python3 tests/test_swarmknowledge_sharing.py
 
-# 4) Boucle complète DANS Android (émulateur ou tablette USB) :
+# 4) MULTI-ESSAIMS : deux salles fédérées sur machines réelles (2 émulateurs
+#    + 2 PC, + .249 dans la salle-B avec --deploy-249) : convergence
+#    indépendante de chaque salle, Digest Exchange, savoir CLOISONNÉ par
+#    essaim, requêtes fédérées croisées, mort du leader de salle-A
+#    (réélection ~9 s) SANS impact sur salle-B, audit intègre partout.
+python3 tests/test_multi_swarm_federation.py --deploy-249 youyou
+
+# 5) Boucle complète DANS Android (émulateur ou tablette USB) :
 cd android && ./gradlew connectedDebugAndroidTest
 ```
 

@@ -32,7 +32,8 @@ couvrant l'alignement mémoire 16 Ko.
    classification, captures).
 
 Aucun paquet pip n'est requis : le noyau SwarmGlu n'utilise que la
-bibliothèque standard Python. La tâche Gradle `syncSwarmGluCore`
+bibliothèque standard Python — y compris la couche cryptographique
+(ECDSA P-256 + ML-KEM-768 en implémentation pure, `crypto_auth.py`). La tâche Gradle `syncSwarmGluCore`
 re-copie automatiquement les modules depuis la racine du dépôt à chaque
 build (source de vérité unique).
 

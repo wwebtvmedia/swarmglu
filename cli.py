@@ -248,6 +248,75 @@ def cmd_whitelist(args: argparse.Namespace) -> int:
 
     elif args.action == "digest":
         print(sm.whitelist_digest())
+
+    elif args.action == "resign":
+        url = (getattr(args, "url", "") or "http://127.0.0.1:7001").rstrip("/") + "/whitelist/trigger-resign"
+        status, data = http_json("POST", url, {"force_self": False})
+        if status != 200 or not data or not data.get("ok"):
+            print("✗ Échec de la re-signature décentralisée (HTTP %s): %s" % (status, data))
+            return 1
+        print("✓ Re-signature décentralisée réussie !")
+        print("  • Nœud signeur sélectionné: %s" % data.get("signer", data.get("selected")))
+        print("  • Consensus 1/8 : %s/%s accords obtenus" % (data.get("approvals_count"), data.get("threshold")))
+        print("  • Époque : %s" % data.get("epoch"))
+        print("  • Probabilités calculées : %s" % data.get("probabilities"))
+        return 0
+
+    elif args.action == "verify-signed":
+        ok, reason = sm.verify_current_signed_whitelist()
+        if ok:
+            signed = sm.get_signed_whitelist() or {}
+            print("✓ Whitelist signée VALIDE !")
+            print("  • Signeur : %s" % signed.get("signer_node_id"))
+            print("  • Date : %s" % signed.get("resigned_at"))
+            print("  • Consensus 1/8 : %s votes" % len(signed.get("consensus_proof", {}).get("approvals", [])))
+            return 0
+        else:
+            print("✗ Whitelist signée INVALIDE : %s" % reason)
+            return 1
+
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Sous-commande : secure-auth (authentification hybride ML-KEM + ECDSA)
+# ---------------------------------------------------------------------------
+
+def cmd_secure_auth(args: argparse.Namespace) -> int:
+    from crypto_auth import NodeCrypto
+
+    client_id = getattr(args, "client_id", "") or "cli-client"
+    crypto = NodeCrypto(client_id, key_dir=args.data_dir)
+    target_url = args.url.rstrip("/")
+
+    # 1. Poignée de main
+    init_payload = crypto.initiate_handshake("remote-node")
+    status, resp = http_json("POST", target_url + "/secure/handshake", init_payload)
+    if status != 200 or not resp:
+        print("✗ Échec du handshake ML-KEM + ECDSA (HTTP %s): %s" % (status, resp))
+        return 1
+
+    # 2. Finalisation et dérivation de la clé de session
+    try:
+        session_key = crypto.finalize_handshake(init_payload, resp)
+    except Exception as exc:
+        print("✗ Échec de finalisation de session: %s" % exc)
+        return 1
+
+    print("✓ Authentification asymétrique réussie avec %s !" % resp.get("sender_id"))
+    print("  • Post-quantique : ML-KEM-768 (KEM NIST FIPS 203)")
+    print("  • Signature numérique : ECDSA SECP256R1")
+    print("  • Clé de session partagée dérivée (HKDF-SHA256, 256 bits)")
+
+    # 3. Test RPC chiffré
+    cmd = {"action": "get_whitelist"}
+    enc_payload = crypto.encrypt_payload(session_key, json.dumps(cmd))
+    rpc_body = {"sender_id": client_id, "payload": enc_payload}
+    status, rpc_resp = http_json("POST", target_url + "/secure/rpc", rpc_body)
+    if status == 200 and rpc_resp:
+        enc_reply = rpc_resp.get("payload", "")
+        dec_reply = json.loads(crypto.decrypt_payload(session_key, enc_reply).decode("utf-8"))
+        print("✓ Commande RPC sécurisée exécutée : %s" % dec_reply)
     return 0
 
 
@@ -512,12 +581,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     # -- whitelist ---------------------------------------------------------
     p = sub.add_parser("whitelist", help="gestion de la whitelist")
-    p.add_argument("action", choices=["init", "add", "remove", "list", "digest"])
+    p.add_argument("action", choices=["init", "add", "remove", "list", "digest", "resign", "verify-signed"])
     p.add_argument("--whitelist-file", default="whitelist.json")
     p.add_argument("--nodes", default="", help="pour init: a,b,c")
     p.add_argument("--node-id", default="", help="pour add/remove")
+    p.add_argument("--url", default="http://127.0.0.1:7001", help="URL du nœud pour resign")
     p.add_argument("--data-dir", default="data")
     p.set_defaults(func=cmd_whitelist)
+
+    # -- secure-auth --------------------------------------------------------
+    p = sub.add_parser("secure-auth", help="authentification hybride post-quantique (ML-KEM + ECDSA)")
+    p.add_argument("--url", default="http://127.0.0.1:7001", help="URL du nœud cible")
+    p.add_argument("--client-id", default="cli-client", help="identifiant client")
+    p.add_argument("--data-dir", default="data", help="répertoire des clés")
+    p.set_defaults(func=cmd_secure_auth)
 
     # -- demo ---------------------------------------------------------------
     p = sub.add_parser("demo", help="test de résilience automatisé "

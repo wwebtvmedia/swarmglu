@@ -59,6 +59,11 @@ class NodeDriverInstrumentation {
             (args.getString("peers") ?: "").split(",").map { it.trim() }
                 .filter { it.isNotEmpty() }.forEach { peers.put(it) }
             put("peers", peers)
+            // Essaims voisins (mode ambassador) :Digest Exchange passerelle.
+            val voisins = JSONArray()
+            (args.getString("neighbors") ?: "").split(",").map { it.trim() }
+                .filter { it.isNotEmpty() }.forEach { voisins.put(it) }
+            put("neighbors", voisins)
         }
 
         val demarrage = PythonBridge.nodeStart(config)

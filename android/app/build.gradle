@@ -104,7 +104,8 @@ task syncSwarmGluCore(type: Copy) {
     description = "Synchronise les modules SwarmGlu depuis la racine du dépôt."
     from rootProject.projectDir.parentFile
     include 'security.py', 'consensus.py', 'state_manager.py',
-            'gateway.py', 'swarm_glu.py', 'android_bridge.py'
+            'gateway.py', 'swarm_glu.py', 'android_bridge.py',
+            'crypto_auth.py', 'decentralized_resigner.py'
     into 'src/main/python'
 }
 preBuild.dependsOn syncSwarmGluCore

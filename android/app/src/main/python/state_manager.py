@@ -46,6 +46,7 @@ VOLATILE_FIELDS = {"last_seen", "alive"}
 LOGICAL_PEER_FIELDS = (
     "ip", "port", "mode", "capabilities", "models", "api_flavor",
     "base_url", "updated_at", "writer",
+    "uptime_s", "requests_count", "joined_at", "ecdsa_pub", "mlkem_pub",
 )
 
 
