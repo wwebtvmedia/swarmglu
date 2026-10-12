@@ -30,6 +30,22 @@
   on-device de la tablette, savoir partagé au même digest, failover,
   audits intègres.
 
+## 2.0.0 (versionCode 6) — noyau natif Kotlin, publication Play
+
+- **NOYAU NATIF** : Chaquopy/Python retirés — le noyau SwarmGlu complet
+  tourne en Kotlin pur (JSON canonique, chaîne d'audit, LWW, élection,
+  NanoHTTPD). APK **8,8 Mo** (÷7), démarrage instantané.
+- **CRYPTO POST-QUANTIQUE NATIVE** : ECDSA P-256 + ML-KEM-768
+  (BouncyCastle) — handshake `/secure/handshake` et RPC chiffré réels.
+- **FOURNISSEUR LLM ON-DEVICE** : branchez le pont OSP local de Tree4Five
+  LLM Provider (URL + token dans les réglages) et la tablette/téléphone
+  sert des inférences llama.cpp réelles à tout l'essaim (routage par
+  `model_hint`).
+- Relais `/relay` avec en-têtes (accès aux ponts OSP depuis un
+  navigateur), WakeLock pilote, réparation de queue de journal,
+  anti-ermite — partagés avec les noyaux Python/JVM (112 tests + flotte
+  réelle à 9 nœuds : Kotlin + Python + 2 téléphones + 2 émulateurs).
+
 ## 1.1.2 (versionCode 4)
 
 - Correctif de protocole ANTI-HERMITE : un leader sans aucun follower

@@ -56,8 +56,8 @@ HIGHLIGHTS
 • Extend the range: one button turns the tablet into a Wi-Fi hotspot
   router for the swarm (secure relay to the school network).
 • Swarm-to-swarm gateway: connect two classrooms with an ambassador node.
-• The embedded Python engine is identical to the classroom PCs: the
-  protocol cannot drift between devices.
+• Ultra-lightweight native Kotlin engine (APK < 9 MB) strictly interoperable
+  with the classroom nodes: the protocol remains identical across the swarm.
 
 The app ships with a demo inference provider, so a single tablet is
 enough to try it. For a full swarm, also run SwarmGlu on a PC

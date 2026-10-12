@@ -58,8 +58,8 @@ CARACTÉRISTIQUES
   Wi-Fi routeur de l'essaim (relais sécurisé vers le réseau de l'école).
 • Passerelle inter-essaims : reliez deux salles de classe en un tap
   (nœud ambassadeur).
-• Moteur Python embarqué identique aux PC de la classe : le protocole ne
-  peut pas diverger entre appareils.
+• Noyau natif Kotlin ultra-léger (APK < 9 Mo) strictement interopérable
+  avec les nœuds de la classe : le protocole reste identique sur tout l'essaim.
 
 L'application inclut un fournisseur de démonstration : une seule tablette
 suffit pour l'essayer. Pour un essaim complet, lancez aussi SwarmGlu sur

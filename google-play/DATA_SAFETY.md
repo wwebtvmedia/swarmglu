@@ -15,7 +15,7 @@ Conséquence : le formulaire se termine là ; la fiche affichera
 
 ## 2. Justification à conserver par écrit (en cas de revue manuelle)
 
-- L'application embarque un moteur Python local (Chaquopy) : tout
+- L'application embarque un moteur natif Kotlin local : tout
   traitement (routage des questions, consensus, journal d'audit) est
   exécuté sur l'appareil.
 - Les communications réseau sont exclusivement **intranet** : HTTP en

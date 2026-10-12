@@ -95,6 +95,8 @@ class MainActivity : AppCompatActivity() {
         val ePeers = field(getString(R.string.set_peers), s.peers); box.addView(ePeers)
         val eNeighbors = field(getString(R.string.set_neighbors), s.neighbors); box.addView(eNeighbors)
         val eGguf = field(getString(R.string.set_gguf), s.ggufUrl); box.addView(eGguf)
+        val eGgufModels = field(getString(R.string.set_gguf_models), s.ggufModels); box.addView(eGgufModels)
+        val eGgufToken = field(getString(R.string.set_gguf_token), s.ggufToken); box.addView(eGgufToken)
         val eMock = field(getString(R.string.set_mock), if (s.mockInference) "1" else "0"); box.addView(eMock)
 
         AlertDialog.Builder(this)
@@ -111,6 +113,8 @@ class MainActivity : AppCompatActivity() {
                         peers = ePeers.text.toString().trim(),
                         neighbors = eNeighbors.text.toString().trim(),
                         ggufUrl = eGguf.text.toString().trim(),
+                        ggufModels = eGgufModels.text.toString().trim(),
+                        ggufToken = eGgufToken.text.toString().trim(),
                         mockInference = eMock.text.toString().trim() != "0"
                     )
                 )

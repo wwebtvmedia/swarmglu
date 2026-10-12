@@ -23,7 +23,9 @@
     <string name="set_mode">Mode (full / follower / ambassador)</string>
     <string name="set_peers">Pairs seed (ip:port,…)</string>
     <string name="set_neighbors">Essaims voisins (ip:port,…)</string>
-    <string name="set_gguf">URL du pont GGUF (facultatif)</string>
+    <string name="set_gguf">Pont LLM local (ex. http://127.0.0.1:8090/v1)</string>
+    <string name="set_gguf_models">Modèles du pont (ex. llmprovider)</string>
+    <string name="set_gguf_token">Token du pont (x-api-token)</string>
     <string name="set_mock">Mock d\'inférence (1/0)</string>
 
     <!-- Tableau de bord -->

@@ -19,7 +19,9 @@ data class NodeSettings(
     var peers: String = "",                 // seeds "192.168.4.10:7001,..."
     var neighbors: String = "",             // essaims voisins (ambassadeur)
     var mockInference: Boolean = true,      // PoC : fournisseur factice sourcé
-    var ggufUrl: String = "",               // pont GGUF réel (ex. http://127.0.0.1:11434)
+    var ggufUrl: String = "",               // pont LLM local (ex. pont OSP :8090/v1)
+    var ggufModels: String = "",            // modèles déclarés (ex. llmprovider)
+    var ggufToken: String = "",             // token du pont (x-api-token)
     var allowJoin: Boolean = true           // enrôlement approuvé par le leader
 )
 
@@ -39,6 +41,8 @@ object SettingsStore {
             neighbors = sp.getString("neighbors", "") ?: "",
             mockInference = sp.getBoolean("mock_inference", true),
             ggufUrl = sp.getString("gguf_url", "") ?: "",
+            ggufModels = sp.getString("gguf_models", "") ?: "",
+            ggufToken = sp.getString("gguf_token", "") ?: "",
             allowJoin = sp.getBoolean("allow_join", true)
         )
     }
@@ -53,6 +57,8 @@ object SettingsStore {
             .putString("neighbors", s.neighbors)
             .putBoolean("mock_inference", s.mockInference)
             .putString("gguf_url", s.ggufUrl)
+            .putString("gguf_models", s.ggufModels)
+            .putString("gguf_token", s.ggufToken)
             .putBoolean("allow_join", s.allowJoin)
             .apply()
     }
