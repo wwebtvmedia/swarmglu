@@ -198,7 +198,12 @@ def phase_convergence():
                  all(p["consensus"]["epoch"] >= 1 for p in st.values()),
                  {n: p["consensus"] for n, p in st.items()})
         verifier("3 pairs vivants dans chaque registre",
-                 all(p["state"]["alive_count"] >= 3 for p in st.values()),
+                 # patient : le registre se rafraîchit au tick suivant
+                 # (heartbeats 3 s) — un instantané juste après l'élection
+                 # attrape un follower qui n'a pas encore vu le 3e pair.
+                 attendre(20, lambda: len(statuts()) == 3 and all(
+                     p["state"]["alive_count"] >= 3 for p in statuts().values()),
+                     pas=2),
                  {n: p["state"]["alive_count"] for n, p in st.items()})
         verifier("chaînes d'audit déjà scellées et intactes",
                  all(p["audit"]["ok"] for p in st.values()))
