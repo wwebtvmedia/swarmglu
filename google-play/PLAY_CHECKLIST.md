@@ -18,9 +18,11 @@ humaines (compte Play Console, 25 USD une fois).
 - ✅ Visuels de fiche : `google-play/assets/icon-512.png`,
   `feature-graphic-1024x500.png` (régénérables : `make_assets.py`).
 - ✅ `versionCode 6` / `versionName "2.0.0"` — **noyau natif Kotlin**
-  (plus de Python embarqué, APK 8,8 Mo), crypto PQ native, fournisseur
-  LLM on-device (pont OSP), hotspot/relais, savoir commun. Signature
-  release + R8 vérifiés par smoke-test installé.
+  (plus de Python embarqué), crypto PQ native, fournisseur LLM on-device
+  (pont OSP), hotspot/relais, savoir commun. **Signature release + R8
+  vérifiés par smoke-test** : `tests/smoke_release_r8.py` installe l'APK
+  minifié réel, démarre le nœud, élit un leader, sert /ask et vérifie la
+  chaîne d'audit (procédure : `howto.txt` §5b).
 
 ## 1. Compiler l'AAB signé (machine avec Android Studio + Internet au 1er build)
 
@@ -60,12 +62,13 @@ automatiquement). Play refuse un AAB signé debug.
   description courte ≤ 80 car., description longue ≤ 4000 car.).
 - ☐ Icône 512×512 : `assets/icon-512.png`.
 - ☐ Bannière : `assets/feature-graphic-1024x500.png`.
-- ☑ **Captures d'écran** : 4 captures natives 2560×1440 dans
-  `assets/screenshots/` (dashboard, LEADER, réponse OSP, audit) ;
-- ☑ ~~Captures d'écran~~ **4 captures réelles fournies** (émulateur Pixel
-  Tablet, 2560×1440, 16:9) : `assets/screenshots/` — tableau de bord
-  (nœud arrêté puis LEADER élu), réponse élève avec verdict OSP vert,
-  audit « CHAÎNE INTACTE ». Importer directement dans la fiche.
+- ☑ **Captures d'écran** : 5 captures 2560×1440 (16:9) dans
+  `assets/screenshots/`, toutes prises sur le **build release R8** :
+  01 dashboard nœud arrêté · 02 tableau de bord **LEADER** ·
+  03 réponse élève avec verdict OSP · 04 audit « CHAÎNE INTACTE » ·
+  05 réglages du pont LLM on-device (nouveauté 2.0.0).
+  Régénérables à volonté : `python3 google-play/capture_screenshots.py`
+  (voir `howto.txt` §5c). Importer directement dans la fiche.
 
 ## 4. Test interne → production (recommandé pour un PoC école)
 

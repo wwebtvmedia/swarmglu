@@ -160,8 +160,54 @@ Poignée de main PQ :   python3 cli.py secure-auth --url http://<ip>:7001
 
 cd android
 ./gradlew assembleDebug          # APK debug (62 Mo) → app/build/outputs/apk/debug
-./gradlew bundleRelease          # AAB signé Play (30,8 Mo, keystore local)
+./gradlew assembleRelease        # APK release signé + R8 (cf. §5b smoke-test)
+./gradlew bundleRelease          # AAB signé Play (5,0 Mo, keystore local)
 ./gradlew connectedDebugAndroidTest   # tests instrumentés (cf. §1g)
+
+--------------------------------------------------------------------------------
+5b) SMOKE-TEST RELEASE R8 (non-régression de la version Play)
+--------------------------------------------------------------------------------
+
+Vérifie que l'APK réellement MINIFIÉ (R8) démarre, élit un leader, sert
+/ask et a une chaîne d'audit intacte — le test instrumenté classique ne
+couvre pas la version release (R8 strippe/renomme le code) :
+
+   # 1) PRÉREQUISE TEMPORAIRE — dans android/app/build.gradle, ajouter
+   #    dans defaultConfig (le test APK doit porter la même signature) :
+   #        testBuildType "release"
+   cd android && ./gradlew assembleRelease assembleReleaseAndroidTest
+   # → app/build/outputs/apk/release/app-release.apk
+   # → app/build/outputs/apk/androidTest/release/app-release-androidTest.apk
+
+   # 2) Le smoke-test (boot émulateur sg-e1, install, instrument, /health,
+   #    /status, élection du leader ≤45 s, POST /ask, /audit/verify) :
+   cd .. && python3 tests/smoke_release_r8.py
+
+   Attendu : "=== RÉSULTAT : VERT (0 échec(s)) ===" (code retour 0)
+
+   # 3) RETIRER testBuildType "release" (laisser testBuildType "debug")
+   #    et rebâtir l'AAB propre :  cd android && ./gradlew bundleRelease
+
+   Pièges R8 déjà codés dans android/app/proguard-rules.pro (ne pas
+   retirer) : androidx.tracing (AndroidJUnitRunner), kotlin.** et
+   kotlinx.coroutines.** (l'APK test ne les embarque pas), CoreBridge
+   entier (le test APK reçoit le mapping des classes mais pas celui des
+   membres → NoSuchFieldError: INSTANCE sans ce keep).
+
+--------------------------------------------------------------------------------
+5c) CAPTURES D'ÉCRAN PLAY (2560×1440, 16:9)
+--------------------------------------------------------------------------------
+
+   Prérequis : ./gradlew assembleRelease (APK release signé)
+   Émulateur optionnel (réutilise sg-e1 s'il tourne déjà, sinon le boote) :
+
+       python3 google-play/capture_screenshots.py
+
+   Produit google-play/assets/screenshots/ : 01 dashboard arrêté,
+   02 tableau de bord LEADER (mode full forcé via le dialog réglages),
+   03 réponse élève OSP, 04 chaîne d'audit intacte, 05 réglages pont LLM.
+   Le script acquitte seul les dialogues système (permission, ANR de
+   démarrage sous swiftshader) et coupe les animations pour rester stable.
 
 --------------------------------------------------------------------------------
 6) GÉNÉRATION DES CLÉS
