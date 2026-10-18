@@ -148,15 +148,26 @@ class ConsensusManager:
         self._stop.set()
 
     def _run(self) -> None:
-        """Boucle principale : un tick toutes les `tick_interval` secondes."""
+        """
+        Boucle principale : un tick toutes les `tick_interval` secondes.
+
+        Le verrou ne couvre PLUS l'intégralité du tick : il ne protège
+        que les mutations d'état (start_election, _proclaim,
+        _accept_leader, _step_down). Les appels réseau (beats, annonces,
+        joins) partent SANS verrou — sinon deux nœuds qui s'annoncent
+        mutuellement pendant que chacun détient son propre verrou (le
+        handler HTTP du pair est alors bloqué sur ce verrou) formaient
+        une impasse garantie : chaque POST expirait à 2,0 s — constaté
+        en démo (abdication décalée d'exactement 2,00 s, puis essaim
+        scindé faute d'échange de carnet d'adresses).
+        """
         while not self._stop.wait(self.config.tick_interval):
             try:
                 now = time.time()
-                with self._lock:
-                    if self.role == Role.LEADER:
-                        self._leader_tick(now)
-                    else:
-                        self._follower_tick(now)
+                if self.role == Role.LEADER:
+                    self._leader_tick(now)
+                else:
+                    self._follower_tick(now)
             except Exception:  # pragma: no cover — robustesse boucle
                 log.exception("erreur dans la boucle de consensus")
 
@@ -256,7 +267,13 @@ class ConsensusManager:
         return (peer.get("ip"), int(peer.get("port", 0)))
 
     def _broadcast_leader_beat(self) -> None:
-        body = self._leader_message()
+        with self._lock:
+            if self.role != Role.LEADER:
+                # Être démis entre le relevé de rôle et ce tick est
+                # possible (le verrou ne couvre plus le tick entier) :
+                # un ex-leader ne doit plus diffuser de battement.
+                return
+            body = self._leader_message()
         vivants = set(self._alive_peer_ids())
         for pid in vivants:
             addr = self._peer_addr(pid)
@@ -451,6 +468,11 @@ class ConsensusManager:
         autres l'entendent et s'inclinent avant leur propre tour.
         """
         with self._lock:
+            if self.leader_id and time.time() < self._lease_deadline:
+                # Un battement est arrivé entre le relevé du bail et la
+                # prise de verrou : le leader est vivant, élection annulée
+                # (sans verrou global autour du tick, cette course existe).
+                return
             candidates = self._eligible_candidates()
             rank = next((i for i, (_k, nid) in enumerate(candidates) if nid == self.node_id), None)
             if rank is None:
@@ -477,7 +499,12 @@ class ConsensusManager:
     def _proclaim(self, trigger: str) -> None:
         """Se proclame Leader pour une nouvelle epoch et l'annonce à tous."""
         with self._lock:
-            if self.role == Role.LEADER:
+            if self.role == Role.LEADER or self.leader_id:
+                # Déjà leader, OU une annonce d'élection est arrivée
+                # pendant notre délai de rang : nous avons adopté un
+                # leader plus légitime — candidature abandonnée (le tick
+                # n'étant plus couvert par le verrou, cette course
+                # existe ; elle est tranchée ici, sous verrou).
                 return
             self.epoch += 1
             self.role = Role.LEADER
@@ -724,6 +751,13 @@ class ConsensusManager:
         # cessent et la partition ne peut plus se refermer.
         self._marquer_emetteur(body)
 
+        # Découverte passive AVANT toute décision de conflit : le carnet
+        # voyage avec le battement MÊME d'un leader rival. Sans ça, un
+        # leader abdiquant n'apprendrait jamais les autres survivants et
+        # son élection suivante ne s'annoncerait qu'au cadavre du leader
+        # (essaim scindé constaté en démo).
+        self._merge_address_book(body.get("peers"))
+
         if self.role == Role.LEADER and leader_id != self.node_id:
             epoch = int(body.get("epoch", 0))
             if epoch > self.epoch or (epoch == self.epoch and body.get("key", "") < self.my_key_str()):
@@ -732,8 +766,6 @@ class ConsensusManager:
                 return 200, {"ok": True, "stood_down": True}
             return 200, {"ok": True, "conflict": "ignoré (ma clé est plus petite)"}
 
-        # Découverte passive : le battement du leader transporte son carnet.
-        self._merge_address_book(body.get("peers"))
         self._adopt_leader_from_message(body, source="leader_beat")
         return 200, {"ok": True, "follower": self.node_id}
 
@@ -751,6 +783,13 @@ class ConsensusManager:
 
         # Même en conflit : garde l'émetteur rafraîchi (cf. handle_leader_beat).
         self._marquer_emetteur(body)
+
+        # L'annonce transporte aussi le carnet d'adresses (cf.
+        # _leader_message) : c'est LE moment où un leader abdiquant
+        # apprend les autres survivants — sans fusion, son élection
+        # suivante ne s'annoncerait qu'aux adresses périmées et la
+        # partition ne se refermerait jamais (essaim scindé).
+        self._merge_address_book(body.get("peers"))
 
         with self._lock:
             if leader_id == self.node_id:

@@ -177,6 +177,59 @@ class TestConflitsEtBaux(unittest.TestCase):
         self.assertNotIn("sans_ip", state.peers)
         self.assertNotEqual(state.peers["b"]["ip"], "9.9.9.9")
 
+    def test_annonce_transporte_carnet_adresses(self):
+        # Régression split-bain : l'annonce d'élection transporte le carnet
+        # (cf. _leader_message) — le récepteur DOIT l'apprendre, sinon un
+        # leader abdiquant ignore les autres survivants de son élection.
+        m, state, *_ = moteur("b", "10.0.0.1")
+        security = m.security
+        security.add_node("a")
+        status, _ = m.handle_leader_announce({
+            "leader_id": "a", "ip": "10.0.0.1", "port": 7001,
+            "epoch": 3, "key": "%010d|%s" % (167772161, "a"),
+            "peers": [{"node_id": "c", "ip": "10.0.0.3",
+                       "port": 7003, "mode": "full"}]}, "")
+        self.assertEqual(status, 200)
+        self.assertIn("c", state.peers)
+
+    def test_battement_en_conflit_fusionne_aussi_le_carnet(self):
+        # Régression split-bain : la branche « conflit ignoré » retournait
+        # AVANT la fusion du carnet — un leader rival ne voyait jamais les
+        # autres pairs (essaim scindé en démo intermittente).
+        m, state, *_ = moteur("b", "10.0.0.1")
+        security = m.security
+        security.add_node("a")
+        m.role = Role.LEADER; m.epoch = 2; m.leader_id = "b"
+        status, reponse = m.handle_leader_beat({
+            "leader_id": "a", "ip": "10.0.0.1", "port": 7001, "epoch": 2,
+            "key": "%010d|%s" % (4294967295, "z"),  # clé > clé de "b"
+            "peers": [{"node_id": "c", "ip": "10.0.0.3",
+                       "port": 7003, "mode": "full"}]}, "")
+        self.assertEqual(status, 200)
+        self.assertIn("conflict", reponse)          # conflit ignoré (on gagne)
+        self.assertEqual(m.role, Role.LEADER)        # on n'a PAS abdiqué
+        self.assertIn("c", state.peers)              # mais le carnet est appris
+
+    def test_proclamation_annulee_si_leader_adopté(self):
+        # Sans verrou global autour du tick : une annonce peut arriver
+        # pendant le délai de rang — la candidature doit être abandonnée.
+        m, *_ = moteur("a", "10.0.0.1")
+        m.epoch = 3
+        m.leader_id = "z"  # leader adopté pendant le délai de proclamation
+        m._proclaim("test")
+        self.assertEqual(m.role, Role.FOLLOWER)
+        self.assertEqual(m.epoch, 3)
+
+    def test_election_annulee_si_bail_renouvelé(self):
+        # Un battement entre le relevé du bail et la prise de verrou ne
+        # doit pas déclencher d'élection intempestive.
+        m, *_ = moteur("b", "10.0.0.1")
+        m.leader_id = "z"
+        m._lease_deadline = time.time() + 100.0  # bail renouvelé à l'instant
+        m.start_election("test")
+        self.assertEqual(m.role, Role.FOLLOWER)
+        self.assertIsNone(m._proclaim_at)
+
 
 if __name__ == "__main__":
     unittest.main()

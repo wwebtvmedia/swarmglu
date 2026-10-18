@@ -322,7 +322,7 @@ Les niveaux, unitaires :
 #    passerelle/garde anti-boucle, pare-feu OSP, + intégration en processus
 #    (élection, routage /ask, basculement après mort du leader, HITL,
 #    fédération de deux essaims).
-python3 -m unittest discover -s tests   # 119 tests (dont crypto 1/8 + repli pur-Python)
+python3 -m unittest discover -s tests   # 123 tests (dont crypto 1/8 + repli pur-Python)
 
 # 2) Essaim réel MULTI-ÉMULATEURS (2 Android + 1 PC, ~5 min) :
 #    crée et boote deux AVD, forme un essaim aux timings du cahier des
