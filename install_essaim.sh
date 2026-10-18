@@ -22,7 +22,10 @@
 #   ./install_essaim.sh --repo URL     # clone depuis une autre source Git
 #   ./install_essaim.sh --help
 #
-# Idempotent : relansez-le en cas de doute, il ne réinstalle que le manquant.
+#   Env (--start) : NODE_ID PORT MODE PEERS ADVERTISE_IP SWARM_ID
+#   (ex. conteneur podman : ADVERTISE_IP=192.168.1.104 PEERS=...:7001)
+#
+# Idempotent : relanchez-le en cas de doute, il ne réinstalle que le manquant.
 # ==============================================================================
 
 set -euo pipefail
@@ -34,7 +37,7 @@ DEMARRER=0
 ANDROID=0
 SERVEUR=0
 
-usage() { sed -n '3,26p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,28p' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -267,15 +270,29 @@ if [ "$SERVEUR" -eq 1 ]; then
 fi
 
 if [ "$DEMARRER" -eq 1 ]; then
+    # Surcharges d'environnement — indispensables en conteneur (podman/
+    # docker) où l'auto-détection retomberait sur l'IP du conteneur, et
+    # pour tout multi-nœud sur la même machine :
+    #   NODE_ID       identifiant du nœud (défaut pc-prof)
+    #   PORT          port HTTP (défaut 7001)
+    #   MODE          full | follower | ambassador | provider (défaut full)
+    #   PEERS         graines « ip:port,ip:port » pour REJOINDRE un essaim
+    #   ADVERTISE_IP  IP annoncée aux pairs (défaut auto-détection)
+    #   SWARM_ID      identifiant d'essaim (défaut salle-1)
     NODE_ID="${NODE_ID:-pc-prof}"
     PORT="${PORT:-7001}"
-    IP_ANNONCE="$(python3 -c "from swarm_glu import detect_local_ip; print(detect_local_ip())")"
+    MODE="${MODE:-full}"
+    IP_ANNONCE="${ADVERTISE_IP:-$(python3 -c "from swarm_glu import detect_local_ip; print(detect_local_ip())")}"
+    ARGS_EXTRA=()
+    [ -n "${PEERS:-}" ] && ARGS_EXTRA+=(--peers "$PEERS")
+    [ -n "${SWARM_ID:-}" ] && ARGS_EXTRA+=(--swarm-id "$SWARM_ID")
     mkdir -p "data/$NODE_ID"
     nohup python3 cli.py serve --node-id "$NODE_ID" --port "$PORT" \
-        --mode full --mock-inference --beacon-port 0 \
+        --mode "$MODE" --mock-inference --beacon-port 0 \
         --advertise-ip "$IP_ANNONCE" \
         --whitelist-file "whitelist-$NODE_ID.json" \
         --data-dir "data/$NODE_ID" \
+        ${ARGS_EXTRA[@]+"${ARGS_EXTRA[@]}"} \
         > "data/$NODE_ID/serve.log" 2>&1 &
     sleep 4
     if curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
