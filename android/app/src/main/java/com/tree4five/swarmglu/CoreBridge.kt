@@ -24,6 +24,11 @@ object CoreBridge {
             val graines = ArrayList<String>()
             val arr = config.optJSONArray("peers") ?: JSONArray()
             for (i in 0 until arr.length()) graines.add(arr.getString(i))
+            // Essaims voisins (mode ambassador) : Digest Exchange passerelle.
+            val essaimsVoisins = ArrayList<String>()
+            val voisinArr = config.optJSONArray("neighbors") ?: JSONArray()
+            for (i in 0 until voisinArr.length())
+                voisinArr.optString(i).takeIf { v -> v.isNotEmpty() }?.let(essaimsVoisins::add)
             return try {
                 val n = NoeudAndroid(
                     nodeId = config.optString("node_id", "android-node"),
@@ -43,7 +48,8 @@ object CoreBridge {
                     // Le pilote transmet une chaîne « a,b » (comme peers).
                     ggufModeles = config.optString("gguf_models", "").split(",")
                         .map { it.trim() }.filter { it.isNotEmpty() },
-                    ggufToken = config.optString("gguf_token", ""))
+                    ggufToken = config.optString("gguf_token", ""),
+                    voisinsEssaims = essaimsVoisins)
                 n.demarrer()
                 noeud = n
                 JSONObject().put("ok", true).put("node_id", n.nodeId)

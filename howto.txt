@@ -18,7 +18,7 @@ Toute commande PC se lance depuis la racine du dépôt :  cd swarmglu
        python3 run_all.py --full --ssh-249 youyou  # + scénarios réseau (~25 min)
        python3 run_all.py --android                # + tests dans Android
 
-a. Suite noyau — 112 tests unitaires + intégration en processus (~50 s)
+a. Suite noyau — 113 tests unitaires + intégration en processus (~50 s)
    Vérifie : whitelist/chaîne de hachage (altération, suppression, réordre),
    élection déterministe et baux, fusion LWW commutative, passerelle,
    pare-feu OSP v0.6, pool de savoir, crypto ML-KEM+ECDSA et consensus 1/8,
@@ -26,7 +26,7 @@ a. Suite noyau — 112 tests unitaires + intégration en processus (~50 s)
 
        python3 -m unittest discover -s tests
 
-   Attendu : "Ran 83 tests ... OK"
+   Attendu : "Ran 113 tests ... OK"
 
 b. Démo de résilience automatique — 3 nœuds locaux, leader tué (~1 min)
 
@@ -88,6 +88,13 @@ g. Multi-essaims fédérés — 2 salles, 5 machines (~8 min)
        python3 tests/test_multi_swarm_federation.py --deploy-249 youyou
 
    Attendu : "MULTI-ESSAIMS VALIDÉ ✔"
+   Le noyau Android Kotlin (NoeudAndroid.kt) implémente le MÊME contrat
+   que gateway.py : POST /gateway/sync (Digest Exchange + meta
+   gateway:<swarm> propagée), POST /gateway/ask (routage fédéré, garde
+   hops max 2), boucle ambassadeur (-e mode ambassador -e neighbors), et
+   gateway_neighbors dans /status. L'émulateur ambassadeur du test EST
+   un nœud Android : sans ces routes, les 5 vérifications fédérées
+   échouent (known_swarms vide).
 
 h. Scénario hotspot « étendre la zone » (~7 min)
    Routeur (émulateur) + client hotspot (émulateur, graine = routeur seul)

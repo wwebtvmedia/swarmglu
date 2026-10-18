@@ -26,6 +26,7 @@ class NoeudAndroid(
     val ggufUrl: String = "",            // pont LLM local (ex. pont OSP /v1)
     val ggufModeles: List<String> = emptyList(),
     val ggufToken: String = "",          // en-tête x-api-token du pont
+    val voisinsEssaims: List<String> = emptyList(),  // essaims voisins (ambassadeur)
 ) {
     @Volatile var enVol: Int = 0         // charge courante (routage)
     val whitelist = Whitelist(cheminWhitelist)
@@ -40,6 +41,12 @@ class NoeudAndroid(
     val sessionsSecures = HashMap<String, ByteArray>()
     private val taches = HashMap<String, JSONObject>()
     private val verrouTaches = Any()
+    // Passerelle multi-essaims (miroir Kotlin de gateway.py) : registre
+    // local des essaims voisins échangés par Digest Exchange + TTL 90 s.
+    private val verrouVoisins = Any()
+    private val voisins = HashMap<String, JSONObject>()
+    private val ttlVoisin = 90.0
+    private val maxSautsFederation = 2
     private val serveur: Serveur
 
     init {
@@ -75,6 +82,7 @@ class NoeudAndroid(
             .put("swarm_id", essaim).put("implementation", "android-kotlin-native"))
         consensus.demarrer()
         filSync()
+        if (voisinsEssaims.isNotEmpty()) filPasserelle()
     }
 
     private fun capacetesAdd(c: MutableList<String>) { c.add("harnessdroid") }
@@ -171,6 +179,8 @@ class NoeudAndroid(
         "/relay" to NanoHTTPD.Method.POST -> surRelais(corps)
         "/agent/task" to NanoHTTPD.Method.POST -> surTache(corps)
         "/agent/dispatch" to NanoHTTPD.Method.POST -> surDispatch(corps)
+        "/gateway/sync" to NanoHTTPD.Method.POST -> surGatewaySync(corps)
+        "/gateway/ask" to NanoHTTPD.Method.POST -> surGatewayAsk(corps)
         "/secure/handshake" to NanoHTTPD.Method.POST -> surHandshake(corps)
         "/secure/rpc" to NanoHTTPD.Method.POST -> surRpcSecurise(corps)
         "/health" to NanoHTTPD.Method.GET -> 200 to JSONObject().put("ok", true)
@@ -218,10 +228,172 @@ class NoeudAndroid(
                     .count { pairsJson.getJSONObject(it).optBoolean("alive") }))
             .put("whitelist_digest", whitelist.digest())
             .put("whitelist_count", whitelist.noeuds().size)
+            .put("gateway_neighbors", JSONArray(voisinsFrais()))
             .put("crypto_mode", crypto.mode)
             .put("implementation", "android-kotlin-native")
             .put("audit", chaine.verifier())
             .put("peers", pairsJson)
+    }
+
+    // ------------------------------------------------------------------
+    // Passerelle multi-essaims : Digest Exchange + routage fédéré
+    // (miroir Kotlin exact de gateway.py — mêmes routes, mêmes contrats)
+    // ------------------------------------------------------------------
+
+    /** Résumé cryptographique de NOTRE essaim (envoyé aux voisins). */
+    private fun digestLocal(): JSONObject {
+        val vivants = etat.pairsVivants(15.0)
+        val modeles = vivants.flatMap { (_, p) ->
+            val arr = p.optJSONArray("models") ?: JSONArray()
+            (0 until arr.length()).map { arr.optString(it) }
+        }.distinct().sorted()
+        return JSONObject()
+            .put("swarm_id", essaim)
+            .put("epoch", etat.doc.optInt("epoch"))
+            .put("leader_id", etat.doc.opt("leader_id") ?: JSONObject.NULL)
+            .put("state_hash", etat.digest())
+            .put("node_count", vivants.size)
+            .put("models", JSONArray(modeles))
+            .put("whitelist_digest", whitelist.digest())
+            .put("ambassador_addr", "$ipAnnonce:$portAnnonce")
+            .put("ts", Math.round(System.currentTimeMillis() / 1000.0 * 1000.0) / 1000.0)
+    }
+
+    /**
+     * POST /gateway/sync — enregistre le digest d'un essaim voisin et
+     * rend le nôtre ; chaque échange est scellé dans la chaîne d'audit
+     * (événement gateway_exchange).
+     */
+    private fun surGatewaySync(corps: JSONObject): Pair<Int, JSONObject> {
+        val distante = corps.optString("swarm_id")
+        if (distante.isEmpty()) return 400 to JSONObject().put("error", "swarm_id requis")
+        if (distante == essaim)
+            // Deux ambassadeurs du même essaim : rien à fédérer.
+            return 200 to JSONObject().put("ok", true).put("self", true)
+                .put("digest", digestLocal())
+        val maintenant = Math.round(System.currentTimeMillis() / 1000.0 * 1000.0) / 1000.0
+        synchronized(verrouVoisins) {
+            voisins[distante] = JSONObject()
+                .put("swarm_id", distante)
+                .put("epoch", corps.optInt("epoch"))
+                .put("leader_id", corps.opt("leader_id") ?: JSONObject.NULL)
+                .put("state_hash", corps.optString("state_hash"))
+                .put("node_count", corps.optInt("node_count"))
+                .put("models", corps.optJSONArray("models") ?: JSONArray())
+                .put("whitelist_digest", corps.optString("whitelist_digest"))
+                .put("ambassador_addr", corps.optString("ambassador_addr"))
+                .put("last_exchange", maintenant)
+        }
+        // PROPAGATION : l'essaim voisin est publié dans l'état distribué
+        // (clé meta, fusion LWW) — ainsi TOUT membre de l'essaim peut
+        // router une requête fédérée, même sans être ambassadeur.
+        etat.setMeta("gateway:$distante", JSONObject()
+            .put("swarm_id", distante)
+            .put("epoch", corps.optInt("epoch"))
+            .put("state_hash", corps.optString("state_hash"))
+            .put("node_count", corps.optInt("node_count"))
+            .put("ambassador_addr", corps.optString("ambassador_addr"))
+            .put("ts", maintenant))
+        chaine.ajouter("gateway_exchange", nodeId, JSONObject()
+            .put("remote_swarm", distante)
+            .put("remote_state_hash", corps.optString("state_hash"))
+            .put("remote_epoch", corps.optInt("epoch"))
+            .put("remote_nodes", corps.optInt("node_count")))
+        return 200 to JSONObject().put("ok", true).put("digest", digestLocal())
+    }
+
+    /** POST /gateway/ask — requête fédérée reçue par un ambassadeur. */
+    private fun surGatewayAsk(corps: JSONObject): Pair<Int, JSONObject> {
+        val cible = corps.optString("swarm_id")
+        if (cible.isNotEmpty() && cible != essaim) return routeFedere(corps)
+        val locale = JSONObject(corps.toString()).put("_fwd", 1)
+        val (s, p) = surAsk(locale)   // nous SOMMES l'essaim cible
+        if (!p.has("federated")) p.put("federated", true)
+        p.put("served_by_swarm", essaim)
+        return s to p
+    }
+
+    /**
+     * Route une requête d'élève vers l'essaim demandé (swarm_id), via son
+     * ambassadeur connu. La garde hops (max 2) empêche la boucle
+     * salle-A -> salle-B -> salle-A.
+     */
+    private fun routeFedere(corps: JSONObject): Pair<Int, JSONObject> {
+        val cible = corps.optString("swarm_id")
+        val sauts = corps.optInt("hops", 0) + 1
+        if (sauts > maxSautsFederation)
+            return 508 to JSONObject()
+                .put("error", "limite de sauts inter-essaims atteinte (boucle ?)")
+                .put("hops", sauts)
+        if (cible.isEmpty()) return 400 to JSONObject().put("error", "swarm_id cible requis")
+        val voisin = trouveVoisin(cible)
+        if (voisin == null || voisin.optString("ambassador_addr").isEmpty())
+            return 404 to JSONObject()
+                .put("error", "essaim '$cible' inconnu de la passerelle")
+                .put("known_swarms",
+                    JSONArray(voisinsFrais().map { it.optString("swarm_id") }))
+        val addr = parseAdresse(voisin.optString("ambassador_addr"))
+            ?: return 502 to JSONObject().put("error", "adresse d'ambassadeur invalide")
+        val transfere = JSONObject(corps.toString()).put("hops", sauts)
+        if (!transfere.has("origin_swarm")) transfere.put("origin_swarm", essaim)
+        chaine.ajouter("gateway_federated_ask", nodeId, JSONObject()
+            .put("target_swarm", cible).put("hops", sauts)
+            .put("student_id", corps.optString("student_id")))
+        val (s, r) = transport.post(addr.first, addr.second, "/gateway/ask", transfere, 90.0)
+        return s to (r ?: JSONObject().put("error", "réponse vide de l'essaim distant"))
+    }
+
+    /** Voisin frais : registre local d'abord, sinon entrée propagée dans l'état. */
+    private fun trouveVoisin(cible: String): JSONObject? {
+        val maintenant = System.currentTimeMillis() / 1000.0
+        synchronized(verrouVoisins) {
+            voisins[cible]?.let {
+                if (maintenant - it.optDouble("last_exchange", 0.0) <= ttlVoisin) return it
+            }
+        }
+        // L'état partagé ne se purge pas physiquement : on ignore
+        // simplement l'entrée périmée (comme _prune côté Python) pour
+        // ne jamais router vers un ambassadeur mort.
+        val meta = etat.getMeta("gateway:$cible") as? JSONObject ?: return null
+        return if (maintenant - meta.optDouble("ts", 0.0) <= ttlVoisin) meta else null
+    }
+
+    /** Voisins connus et frais (pour /status et le routage fédéré). */
+    private fun voisinsFrais(): List<JSONObject> {
+        val maintenant = System.currentTimeMillis() / 1000.0
+        synchronized(verrouVoisins) {
+            return voisins.values
+                .filter { maintenant - it.optDouble("last_exchange", 0.0) <= ttlVoisin }
+                .map { JSONObject(it.toString()) }
+        }
+    }
+
+    private fun parseAdresse(url: String): Pair<String, Int>? = try {
+        val i = url.lastIndexOf(':')
+        if (i <= 0) null else url.substring(0, i) to url.substring(i + 1).toInt()
+    } catch (_: Exception) { null }
+
+    /**
+     * Boucle ambassadeur : pousse notre digest vers chaque essaim voisin
+     * configuré — tôt (3 s, pour laisser l'essaim local se former), puis
+     * toutes les 10 s. La réponse contient le digest du voisin : on
+     * l'enregistre aussi (échange réciproque, comme _run de gateway.py).
+     */
+    private fun filPasserelle() {
+        Thread {
+            Thread.sleep(3000)
+            while (true) {
+                for (url in voisinsEssaims) {
+                    val addr = parseAdresse(url)
+                    if (addr == null) continue
+                    val (s, r) = transport.post(addr.first, addr.second,
+                        "/gateway/sync", digestLocal(), 3.0)
+                    val digest = if (s == 200) r?.optJSONObject("digest") else null
+                    if (digest != null) surGatewaySync(digest)
+                }
+                Thread.sleep(10000)
+            }
+        }.apply { name = "gateway"; isDaemon = true }.start()
     }
 
     private fun surSavoir(): Pair<Int, JSONObject> {
@@ -306,6 +478,14 @@ class NoeudAndroid(
         if (question.isEmpty()) return 400 to JSONObject().put("error", "champ 'prompt' requis")
         derniereQuestion = question
         dernierStudent = corps.optString("student_id")
+
+        // 1) Fédération inter-essaims (sauf si la requête nous est déjà
+        //    transférée : marqueur _fwd anti-boucle) — même ordre que le
+        //    Python : le swarm_id distant prime sur la délégation leader.
+        val cibleEssaim = corps.optString("swarm_id")
+        if (cibleEssaim.isNotEmpty() && cibleEssaim != essaim && !corps.has("_fwd")) {
+            return routeFedere(corps)
+        }
 
         // Délégation au leader si follower (marqueur anti-boucle absent).
         if (!corps.has("_fwd") && consensus.role != Role.LEADER && consensus.leaderId != null) {
