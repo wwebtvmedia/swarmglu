@@ -275,9 +275,10 @@ class ConsensusManager:
                 return
             body = self._leader_message()
         vivants = set(self._alive_peer_ids())
+        my_port = int(self.identity.get("port", 0) or 0)
         for pid in vivants:
             addr = self._peer_addr(pid)
-            if not addr:
+            if not addr or (addr[0] == self.identity.get("ip") and addr[1] == my_port):
                 continue
             try:
                 self.transport.post(addr[0], addr[1], "/leader-beat", body, timeout=2.0)
@@ -291,7 +292,8 @@ class ConsensusManager:
         # ouverte jusqu'à la purge du registre (5 * peer_timeout).
         oublies = [(pid, peer) for pid, peer in list(self.state.peers.items())
                    if pid != self.node_id and pid not in vivants
-                   and peer.get("ip") and peer.get("port")]
+                   and peer.get("ip") and peer.get("port")
+                   and not (peer.get("ip") == self.identity.get("ip") and int(peer.get("port", 0) or 0) == my_port)]
         if oublies:
             threading.Thread(target=self._beat_oublies,
                              args=(body, oublies), daemon=True).start()
@@ -529,11 +531,14 @@ class ConsensusManager:
         # l'« autre » qui permet au plus grand de céder devant le plus
         # petit (règle déterministe) et de refermer la partition.
         body = self._leader_message()
+        my_port = int(self.identity.get("port", 0) or 0)
         for pid, peer in list(self.state.peers.items()):
             if pid == self.node_id:
                 continue
-            ip, port = peer.get("ip"), int(peer.get("port", 0))
+            ip, port = peer.get("ip"), int(peer.get("port", 0) or 0)
             if not ip or not port:
+                continue
+            if ip == self.identity.get("ip") and port == my_port:
                 continue
             try:
                 self.transport.post(ip, port, "/leader-announce", body, timeout=2.0)
@@ -546,7 +551,7 @@ class ConsensusManager:
         epoch = int(msg.get("epoch", 0))
         key = msg.get("key") or ""
         addr = (msg.get("ip"), int(msg.get("port", 0)))
-        if not leader_id or not addr[0]:
+        if not leader_id or not addr[0] or leader_id == self.node_id:
             return
         self._accept_leader(leader_id, epoch, key, addr, source)
 
@@ -745,6 +750,9 @@ class ConsensusManager:
         leader_id = body.get("leader_id", "")
         if not leader_id or not self.security.is_node_allowed(leader_id):
             return 403, {"error": "leader non whitelisté"}
+
+        if leader_id == self.node_id:
+            return 200, {"ok": True, "self": True}
 
         # Même en conflit (deux leaders coexistants) : sans ce rafraîchissement,
         # chacun marque l'autre « mort » après peer_timeout, les battements

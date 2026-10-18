@@ -230,6 +230,31 @@ class TestConflitsEtBaux(unittest.TestCase):
         self.assertEqual(m.role, Role.FOLLOWER)
         self.assertIsNone(m._proclaim_at)
 
+    def test_battement_de_soi_meme_ne_demet_pas_le_leader(self):
+        # Un leader qui reçoit son propre battement (seed réflexif, alias d'IP)
+        # ne doit JAMAIS se démettre en follower de lui-même.
+        m, *_ = moteur("a", "10.0.0.1")
+        m.security.add_node("a")
+        m.role = Role.LEADER; m.epoch = 2; m.leader_id = "a"
+        status, reponse = m.handle_leader_beat({
+            "leader_id": "a", "ip": "10.0.0.1", "port": 7001, "epoch": 2,
+            "key": m.my_key_str()}, "")
+        self.assertEqual(status, 200)
+        self.assertTrue(reponse.get("self"))
+        self.assertEqual(m.role, Role.LEADER)
+        self.assertEqual(m.leader_id, "a")
+
+    def test_adopt_leader_ignore_soi_meme(self):
+        # _adopt_leader_from_message ne doit jamais adopter soi-même comme leader
+        # car _accept_leader force le rôle à FOLLOWER.
+        m, *_ = moteur("a", "10.0.0.1")
+        m.role = Role.LEADER; m.epoch = 2; m.leader_id = "a"
+        m._adopt_leader_from_message({
+            "leader_id": "a", "ip": "10.0.0.1", "port": 7001, "epoch": 2,
+            "key": m.my_key_str()}, source="test")
+        self.assertEqual(m.role, Role.LEADER)
+
 
 if __name__ == "__main__":
     unittest.main()
+

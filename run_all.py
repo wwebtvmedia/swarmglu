@@ -7,7 +7,7 @@ Exécute toute la chaîne de validation, dans l'ordre recommandé, avec
 synthèse finale et code de sortie non nul au premier échec.
 
 Usage :
-    python3 run_all.py                # rapide : noyau (112 tests) + démo résilience
+    python3 run_all.py                # rapide : noyau (125 tests) + démo résilience
     python3 run_all.py --full         # + scénarios émulateurs/réseau (~25 min)
     python3 run_all.py --full --ssh-249 youyou   # avec le nœud distant .249
     python3 run_all.py --android      # + tests dans Android (appareil/émulateur ADB)
@@ -51,7 +51,7 @@ def main():
     args = parseur.parse_args()
 
     etapes = [
-        ("1. Suite noyau (112 tests)", [sys.executable, "-m", "unittest",
+        ("1. Suite noyau (125 tests)", [sys.executable, "-m", "unittest",
                                         "discover", "-s", "tests"], 600),
         ("2. Démo résilience (3 nœuds, leader tué)", [sys.executable,
                                                       "cli.py", "demo",

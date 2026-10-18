@@ -110,13 +110,13 @@ demarrer() { # indice
     local idx="$1" nid port peers
     nid="${IDS[$idx]}"; port="$(port_de "$idx")"; peers="$(peers_pour "$idx")"
     mkdir -p "$DIR/$nid"
-    nohup python3 cli.py serve --node-id "$nid" --port "$port" \
+    nohup python3 -u cli.py serve --node-id "$nid" --port "$port" \
         --swarm-id salle-natif --whitelist-file "$WL" \
         --data-dir "$DIR/$nid" --advertise-ip 127.0.0.1 \
         --mode full --mock-inference --beacon-port 0 \
         --heartbeat-interval 1.0 --lease-timeout 2.0 \
         --peers "$peers" --log-level WARNING \
-        > "$DIR/$nid/serve.log" 2>&1 &
+        >> "$DIR/$nid/serve.log" 2>&1 &
     echo $! > "$DIR/$nid.pid"
 }
 

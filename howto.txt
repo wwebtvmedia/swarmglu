@@ -12,7 +12,7 @@ Toute commande PC se lance depuis la racine du dépôt :  cd swarmglu
 --------------------------------------------------------------------------------
 
 Une seule commande installe TOUT et valide la création d'essaim
-(paquets système, dépôt, roues crypto, suite 123 tests + démo 3 nœuds) :
+(paquets système, dépôt, roues crypto, suite 125 tests + démo 3 nœuds) :
 
        git clone https://github.com/wwebtvmedia/swarmglu.git
        cd swarmglu && ./install_essaim.sh
@@ -44,7 +44,7 @@ Attendu (fin de script) : "MACHINE PRÊTE ✔" suivi des commandes de nœud
        python3 run_all.py --full --ssh-249 youyou  # + scénarios réseau (~25 min)
        python3 run_all.py --android                # + tests dans Android
 
-a. Suite noyau — 123 tests unitaires + intégration en processus (~50 s)
+a. Suite noyau — 125 tests unitaires + intégration en processus (~50 s)
    Vérifie : whitelist/chaîne de hachage (altération, suppression, réordre),
    élection déterministe et baux, fusion LWW commutative, passerelle,
    pare-feu OSP v0.6, pool de savoir, crypto ML-KEM+ECDSA et consensus 1/8,
@@ -52,7 +52,7 @@ a. Suite noyau — 123 tests unitaires + intégration en processus (~50 s)
 
        python3 -m unittest discover -s tests
 
-   Attendu : "Ran 123 tests ... OK"
+   Attendu : "Ran 125 tests ... OK"
 
 b. Démo de résilience automatique — 3 nœuds locaux, leader tué (~1 min)
 
