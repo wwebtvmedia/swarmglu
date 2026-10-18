@@ -139,9 +139,25 @@ i. Non-régression DANS Android (boucle complète sur émulateur/tablette)
    t02 OSP VERIFIED, t03 barrière HITL, t04 chaîne INTACTE — un émulateur
    ou une tablette USB doit être visible dans `adb devices`.
 
-h. TOUT EN UNE LIGNE (PC uniquement, ~10 min) :
+j. TOUT EN UNE LIGNE (PC uniquement, ~10 min) :
 
        python3 -m unittest discover -s tests && python3 cli.py demo --nodes 3
+
+k. Essaim NATIF — 3 nœuds purs, SANS podman SANS émulation (~1 min)
+   Valide sur machine physique pure : maillage de graines complet,
+   convergence (1 leader), /ask + savoir partagé (digest identique sur
+   les 3 nœuds), kill -9 du leader → réélection → /ask de survie →
+   redémarrage du leader mort → REJOINT sans partition, 3 audits
+   intacts. Étapes [1/7] à [7/7].
+
+       ./essaim_natif.sh
+
+   Attendu : "ESSAIM NATIF RÉSILIENT VALIDÉ ✔"
+   Options : --nodes 5 (min 3), --base-port 7201, --laisser (essaim
+   laissé en vie), --stop (arrête ce qui a été laissé), --help.
+   Données : data/natif/ (whitelist, journaux serve.log, pids) —
+   ignorées par git. (Le message « Killed » affiché à l'étape 6/7 est
+   le kill -9 du leader, attendu.)
 
 --------------------------------------------------------------------------------
 2) LANCER UN NŒUD (utilisation courante)
