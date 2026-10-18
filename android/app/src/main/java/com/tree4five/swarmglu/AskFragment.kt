@@ -52,6 +52,13 @@ class AskFragment : Fragment() {
                     inputModel.text.toString().trim(),
                     inputSwarm.text.toString().trim()
                 )
+            }, onError = { e ->
+                // Exception non rattrapée par CoreBridge.ask : ne JAMAIS
+                // laisser le bouton bloqué ni le spinner tourner.
+                button.isEnabled = true
+                progress.visibility = View.GONE
+                result.setTextColor(Color.rgb(198, 40, 40))
+                result.text = getString(R.string.ask_error, "$e")
             }) { reply ->
                 button.isEnabled = true
                 progress.visibility = View.GONE
@@ -61,7 +68,13 @@ class AskFragment : Fragment() {
     }
 
     private fun renderReply(reply: JSONObject, out: TextView) {
-        if (reply.has("error") || reply.optInt("http_status", 200) >= 400) {
+        // http_status 0 = échec de transport (aucune réponse HTTP) : il doit
+        // tomber dans l'erreur, sinon un réseau coupé s'affiche comme un
+        // succès vide. Seule une réponse 2xx sans « error » est un succès.
+        val statut = reply.optInt("http_status", 200)
+        if (reply.has("error") || statut !in 200..299) {
+            out.setTypeface(null, Typeface.NORMAL)
+            out.setTextColor(Color.rgb(198, 40, 40))
             out.text = getString(
                 R.string.ask_error,
                 reply.optString("error", reply.toString())

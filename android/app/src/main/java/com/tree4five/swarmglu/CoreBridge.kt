@@ -92,7 +92,14 @@ object CoreBridge {
             .put("student_id", student.ifEmpty { "eleve-android" })
         if (model.isNotEmpty()) corps.put("model_hint", model)
         if (swarm.isNotEmpty()) corps.put("swarm_id", swarm)
-        val (s, p) = n.transport.post("127.0.0.1", n.port, "/ask", corps, 90.0)
+        // Le transport peut lever (réseau coupé, port mort…) : renvoyer un
+        // JSON d'erreur plutôt que de faire échouer tout le thread arrière.
+        val (s, p) = try {
+            n.transport.post("127.0.0.1", n.port, "/ask", corps, 90.0)
+        } catch (e: Exception) {
+            return JSONObject().put("error", "échec de communication : $e")
+                .put("http_status", 0)
+        }
         return (p ?: JSONObject()).put("http_status", s)
     }
 
@@ -138,11 +145,29 @@ object CoreBridge {
 
     @Volatile var appContext: android.content.Context? = null
 
-    /** Les appels réseau peuvent durer : toujours hors du thread UI. */
-    fun <T> onBackground(bloc: () -> T, onDone: (T) -> Unit) {
+    /**
+     * Les appels réseau peuvent durer : toujours hors du thread UI.
+     * Une exception dans `bloc` ne doit JAMAIS laisser l'UI figée (bouton
+     * désactivé, spinner éternel) : elle est capturée et remontée à
+     * `onError` sur le thread principal. `onError` est placé AVANT `onDone`
+     * (dernier paramètre) pour que les appels à lambda traînante
+     * `onBackground({ … }) { résultat -> … }` continuent de compiler.
+     */
+    fun <T> onBackground(
+        bloc: () -> T,
+        onError: (Throwable) -> Unit = { e ->
+            android.util.Log.e("SwarmGlu", "appel arrière-plan échoué", e)
+        },
+        onDone: (T) -> Unit
+    ) {
         Thread {
-            val resultat = bloc()
-            android.os.Handler(android.os.Looper.getMainLooper()).post { onDone(resultat) }
+            try {
+                val resultat = bloc()
+                android.os.Handler(android.os.Looper.getMainLooper()).post { onDone(resultat) }
+            } catch (t: Throwable) {
+                android.util.Log.e("SwarmGlu", "exception dans onBackground", t)
+                android.os.Handler(android.os.Looper.getMainLooper()).post { onError(t) }
+            }
         }.apply { name = "swarmglu-ui-call" }.start()
     }
 }

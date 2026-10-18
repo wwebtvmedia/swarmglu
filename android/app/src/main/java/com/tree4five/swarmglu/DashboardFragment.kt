@@ -73,7 +73,9 @@ class DashboardFragment : Fragment() {
             val input = view.findViewById<EditText>(R.id.input_wl_node)
             val nodeId = input.text.toString().trim()
             if (nodeId.isEmpty()) return@setOnClickListener
-            CoreBridge.onBackground({ CoreBridge.whitelistAdd(nodeId) }) { res ->
+            CoreBridge.onBackground({ CoreBridge.whitelistAdd(nodeId) },
+                onError = { e -> flash(false, "$e") }
+            ) { res ->
                 flash(res.optBoolean("ok"), res.toString())
                 input.setText("")
             }

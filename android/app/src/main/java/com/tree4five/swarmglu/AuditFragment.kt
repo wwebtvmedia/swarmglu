@@ -27,13 +27,24 @@ class AuditFragment : Fragment() {
 
         view.findViewById<Button>(R.id.btn_verify).setOnClickListener {
             out.text = getString(R.string.audit_running)
-            CoreBridge.onBackground({ CoreBridge.auditVerify() }) { render(it, out) }
+            CoreBridge.onBackground({ CoreBridge.auditVerify() },
+                onError = { e -> afficherErreur(out, e) }
+            ) { render(it, out) }
         }
 
         view.findViewById<Button>(R.id.btn_tail).setOnClickListener {
             out.text = getString(R.string.audit_running)
-            CoreBridge.onBackground({ CoreBridge.auditTail(20) }) { renderTail(it, out) }
+            CoreBridge.onBackground({ CoreBridge.auditTail(20) },
+                onError = { e -> afficherErreur(out, e) }
+            ) { renderTail(it, out) }
         }
+    }
+
+    /** Exception réseau inattendue : remplacer le « en cours… » bloqué. */
+    private fun afficherErreur(out: TextView, e: Throwable) {
+        out.setTypeface(null, android.graphics.Typeface.NORMAL)
+        out.setTextColor(Color.rgb(198, 40, 40))
+        out.text = getString(R.string.audit_node_off) + "\n($e)"
     }
 
     private fun render(report: JSONObject, out: TextView) {
