@@ -39,6 +39,10 @@ c. Communication émulateur ↔ 192.168.1.249 + téléphones USB (~8 min)
    Détecte AUTOMATIQUEMENT les appareils branchés (Note 10, tablette…),
    équipe .249 (roues cryptography), converge en essaim direct, teste
    ancrage OSP, savoir partagé, relais, handshake PQ, failover ~7 s.
+   AVANT instrumentation l'appareil est préparé (sinon échec explicite) :
+   réveil écran, Wi-Fi activé si coupé, LAN vers .249 vérifié — après un
+   reboot avec boot chiffré encore verrouillé, déverrouiller la tablette
+   (PIN) sinon Android refuse de démarrer l'App (« not encryption aware »).
 
        python3 tests/test_communication_249.py
 
@@ -98,9 +102,9 @@ i. Non-régression DANS Android (boucle complète sur émulateur/tablette)
 
        cd android && ./gradlew connectedDebugAndroidTest
 
-   Attendu : 4/4 (bootstrap/élection, OSP VERIFIED, barrière HITL,
-   chaîne INTACTE) — un émulateur ou une tablette USB doit être visible
-   dans `adb devices`.
+   Attendu : 5/5 — NodeDriver (runNode, 120 s) + t01 bootstrap/élection,
+   t02 OSP VERIFIED, t03 barrière HITL, t04 chaîne INTACTE — un émulateur
+   ou une tablette USB doit être visible dans `adb devices`.
 
 h. TOUT EN UNE LIGNE (PC uniquement, ~10 min) :
 

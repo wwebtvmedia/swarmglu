@@ -87,6 +87,63 @@ def attendre(delai_s, f, pas=1.0):
     return False
 
 
+def reveiller_appareil(serie):
+    """Réveille l'écran et retire le verrou AVANT instrumentation.
+    Après un redémarrage, tant que le premier déverrouillage n'a pas eu
+    lieu, l'App n'est pas « encryption aware » et Android refuse de la
+    démarrer (SecurityException) : le nœud physique ne naît jamais et
+    toutes les phases suivantes échouent en cascade."""
+    cmd([ADB, "-s", serie, "shell", "input", "keyevent", "KEYCODE_WAKEUP"])
+    cmd([ADB, "-s", serie, "shell", "wm", "dismiss-keyguard"])
+    time.sleep(1.0)
+
+
+def preparer_appareil(serie, graine=None):
+    """Réveil + Wi-Fi + connectivité LAN AVANT instrumentation.
+    Après un reboot l'appareil peut revenir « Wi-Fi is disabled » : sans
+    LAN il ne rejoint jamais le nœud graine → isolement total (savoir à
+    0, epoch figé) et échecs en cascade dans toutes les phases."""
+    reveiller_appareil(serie)
+    etat = cmd([ADB, "-s", serie, "shell", "dumpsys", "wifi"]).stdout or ""
+    if "Wi-Fi is disabled" in etat:
+        print("      %s : Wi-Fi éteint après reboot → activation…" % serie)
+        cmd([ADB, "-s", serie, "shell", "svc", "wifi", "enable"])
+        if not attendre(40, lambda: "inet " in (cmd([ADB, "-s", serie, "shell",
+                "ip", "addr", "show", "wlan0"]).stdout or ""), pas=2):
+            raise SystemExit(
+                "Wi-Fi impossible à activer sur %s → appareil isolé, "
+                "nœud impossible (activer le Wi-Fi manuellement)" % serie)
+    if graine:
+        if not attendre(30, lambda: subprocess.run(
+                [ADB, "-s", serie, "shell", "ping", "-c", "1", "-W", "2", graine],
+                capture_output=True).returncode == 0, pas=3):
+            raise SystemExit(
+                "%s : LAN vers la graine %s injoignable (Wi-Fi/captif ?) → "
+                "nœud isolé, lancer impossible" % (serie, graine))
+        print("      %s : Wi-Fi OK, LAN vers %s joignable" % (serie, graine))
+
+
+def verifier_demarrage_noeud(serie, node_id, url, delai_s=45):
+    """Attend /status du nœud instrumentation ; sinon abort EXPLICITE
+    avec diagnostic, au lieu d'échecs en cascade dans les phases."""
+    if attendre(delai_s, lambda: http_json("GET", url + "/status",
+                                           timeout=4)[0] == 200, pas=2):
+        return
+    r = cmd([ADB, "-s", serie, "logcat", "-d", "-t", "300"])
+    sortie = r.stdout or ""
+    if "not encryption aware" in sortie:
+        raison = ("démarrage chiffré verrouillé : déverrouiller l'écran de %s "
+                  "(PIN) puis relancer — SecurityException "
+                  "'Package ... is not encryption aware'" % serie)
+    else:
+        bruits = [l for l in sortie.splitlines()
+                  if "TestRunner" in l or "FATAL" in l or "INSTRUMENTATION_FAILED" in l]
+        raison = ("pas de /status après %d s — %s" % (
+            delai_s, bruits[-1][:180] if bruits else
+            "aucun signal (logcat appareil pour détails)"))
+    raise SystemExit("ÉCHEC DÉMARRAGE nœud %s (%s) : %s" % (node_id, serie, raison))
+
+
 # ---------------------------------------------------------------------------
 # Étapes
 # ---------------------------------------------------------------------------

@@ -186,6 +186,7 @@ def demarrer_telephones(urls, pilotes):
             ["socat", "TCP-LISTEN:%d,bind=%s,fork,reuseaddr" % (port_hote, IP_LOCALE),
              "TCP:127.0.0.1:%d" % port_hote],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        mu.preparer_appareil(serie, graine=IP_LOIN)
         pilotes.append(subprocess.Popen(
             [mu.ADB, "-s", serie, "shell", "am", "instrument", "-w",
              "-e", "class", "com.tree4five.swarmglu.NodeDriverInstrumentation",
@@ -198,6 +199,8 @@ def demarrer_telephones(urls, pilotes):
             stdout=open("/tmp/sg_comm_%s.log" % node_id, "w"), stderr=subprocess.STDOUT))
         urls[node_id] = "http://127.0.0.1:%d" % port_hote
         print("      %s (%s) → %s" % (node_id, serie, urls[node_id]))
+        # échec EXPLICITE si le nœud ne naît pas (boot chiffré, crash…)
+        mu.verifier_demarrage_noeud(serie, node_id, urls[node_id])
 
 
 def demarrer_emulateur():
@@ -334,7 +337,9 @@ def phase_resilience(user):
     survivants = {n: u for n, u in URLS.items() if n != "far-249"}
     ok = verifier("réélection chez les survivants (epoch > %d)" % epoch_avant,
                   mu.attendre(60, lambda: (
-                      lambda etats: len(etats) == len(survivants)
+                      # un survivant encore en élection renvoie None :
+                      # on retente au tick suivant au lieu de planter.
+                      lambda etats: all(e is not None for e in etats.values())
                       and len({e["consensus"]["leader_id"] for e in etats.values()}) == 1
                       and all(e["consensus"]["epoch"] > epoch_avant for e in etats.values())
                   )({n: statut(u) for n, u in survivants.items()}), pas=3),

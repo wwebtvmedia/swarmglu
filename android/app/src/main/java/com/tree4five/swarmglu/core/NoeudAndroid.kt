@@ -116,18 +116,11 @@ class NoeudAndroid(
         override fun serve(session: IHTTPSession): Response {
             val chemin = session.uri.trimEnd('/')
             val cheminNorm = if (chemin.isEmpty()) "/" else chemin
-            // Route à motif : /agent/task/{id}/validate
-            val correspondance = Regex("^/agent/task/([^/]+)/validate$").find(cheminNorm)
-            if (correspondance != null && session.method == NanoHTTPD.Method.POST) {
-                val corpsVal: JSONObject = try {
-                    JSONObject(session.inputStream.readBytes().toString(Charsets.UTF_8))
-                } catch (_: Exception) { JSONObject() }
-                val (s, r) = surValidationTache(correspondance.groupValues[1], corpsVal)
-                return newFixedLengthResponse(
-                    Response.Status.lookup(s) ?: Response.Status.INTERNAL_ERROR,
-                    "application/json", Json.canonical(r))
-            }
             try {
+                // Corps lu UNE seule fois, à longueur exacte : la variante
+                // readBytes() restait sans effet sur cette route (corps vide
+                // → approved absent → « rejected » sans « task » → NPE du
+                // test t03), alors que la boucle content-length est fiable.
                 val corps: JSONObject = if (session.method == NanoHTTPD.Method.POST) {
                     val taille = Integer.parseInt(
                         session.headers.get("content-length") ?: "0")
@@ -138,8 +131,18 @@ class NoeudAndroid(
                         if (n < 0) break
                         lus += n
                     }
-                    if (lus == 0) JSONObject() else JSONObject(String(octets, 0, lus, Charsets.UTF_8))
+                    if (lus == 0) JSONObject()
+                    else JSONObject(String(octets, 0, lus, Charsets.UTF_8))
                 } else JSONObject()
+                // Route à motif : /agent/task/{id}/validate
+                val correspondance =
+                    Regex("^/agent/task/([^/]+)/validate$").find(cheminNorm)
+                if (correspondance != null && session.method == NanoHTTPD.Method.POST) {
+                    val (s, r) = surValidationTache(correspondance.groupValues[1], corps)
+                    return newFixedLengthResponse(
+                        Response.Status.lookup(s) ?: Response.Status.INTERNAL_ERROR,
+                        "application/json", Json.canonical(r))
+                }
                 val ipClient = session.headers.get("http-client-ip")
                     ?: session.remoteIpAddress ?: ""
                 val (statut, reponse) = router(cheminNorm, session.method, corps, ipClient)

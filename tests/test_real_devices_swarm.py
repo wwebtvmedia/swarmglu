@@ -132,11 +132,13 @@ def main():
                  attendre(15, lambda: (statut(urls["py-1"]) or {})
                           .get("consensus", {}).get("leader_id") == "kot-a", pas=0.5))
 
-        # 3) pilotes sur les téléphones (écran verrouillé OK : instrumentation)
+        # 3) pilotes sur les téléphones (réveil AVANT : après reboot, App
+        # non « encryption aware » = refus de démarrage → nœud jamais né)
         print("\n[3] nœuds NATIFS sur les téléphones…")
         for i, serie in enumerate(serie_physiques):
             node_id = "tel-" + serie[-4:].lower()
             port_hote = 17011 + i
+            mu.preparer_appareil(serie, graine=IP_LAN)
             pilotes.append(subprocess.Popen(
                 [mu.ADB, "-s", serie, "shell", "am", "instrument", "-w",
                  "-e", "class", "com.tree4five.swarmglu.NodeDriverInstrumentation",
@@ -149,6 +151,7 @@ def main():
                  "%s.test/androidx.test.runner.AndroidJUnitRunner" % mu.PKG],
                 stdout=open("/tmp/sg_real_%s.log" % node_id, "w"),
                 stderr=subprocess.STDOUT))
+            mu.verifier_demarrage_noeud(serie, node_id, urls[node_id])
 
         # 4) convergence N nœuds + noyau natif vérifié
         print("\n[4] convergence de l'essaim réel (%d nœuds)…" % len(urls))

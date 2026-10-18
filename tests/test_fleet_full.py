@@ -255,11 +255,14 @@ def demarrer_telephones(urls, pilotes, leader_ip, port_leader):
         else:
             print("      %s : pas de pont OSP local (token absent) — nœud simple" % node_id)
         args_pilote += ["%s.test/androidx.test.runner.AndroidJUnitRunner" % mu.PKG]
+        mu.preparer_appareil(serie, graine=IP_LAN)
         pilotes.append(subprocess.Popen(
             args_pilote, stdout=open("/tmp/sg_fleet_%s.log" % node_id, "w"),
             stderr=subprocess.STDOUT))
         urls[node_id] = "http://127.0.0.1:%d" % port_hote
         print("      %s (%s) → %s" % (node_id, serie, urls[node_id]))
+        # échec EXPLICITE si le nœud ne naît pas (boot chiffré, crash…)
+        mu.verifier_demarrage_noeud(serie, node_id, urls[node_id])
     return serie_physiques
 
 
