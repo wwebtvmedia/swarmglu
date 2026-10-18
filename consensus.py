@@ -257,7 +257,8 @@ class ConsensusManager:
 
     def _broadcast_leader_beat(self) -> None:
         body = self._leader_message()
-        for pid in self._alive_peer_ids():
+        vivants = set(self._alive_peer_ids())
+        for pid in vivants:
             addr = self._peer_addr(pid)
             if not addr:
                 continue
@@ -265,6 +266,39 @@ class ConsensusManager:
                 self.transport.post(addr[0], addr[1], "/leader-beat", body, timeout=2.0)
             except Exception:
                 pass  # le bail du follower expirera de lui-même
+        # Anti-partition : les adresses MÉMORISÉES même présumées mortes
+        # reçoivent aussi le battement (thread d'arrière-plan, court délai).
+        # Une vue réciproquement périmée — précisément ce qui mène à deux
+        # co-proclamations — ne serait jamais rafraîchie sinon : si
+        # l'annonce unique de _proclaim est perdue, la partition resterait
+        # ouverte jusqu'à la purge du registre (5 * peer_timeout).
+        oublies = [(pid, peer) for pid, peer in list(self.state.peers.items())
+                   if pid != self.node_id and pid not in vivants
+                   and peer.get("ip") and peer.get("port")]
+        if oublies:
+            threading.Thread(target=self._beat_oublies,
+                             args=(body, oublies), daemon=True).start()
+
+    def _beat_oublies(self, body: Dict[str, Any],
+                      pairs: List[Tuple[str, Dict[str, Any]]]) -> None:
+        """Battement aux adresses connues hors liste vivante (anti-partition)."""
+        for _pid, peer in pairs:
+            try:
+                self.transport.post(peer["ip"], int(peer["port"]),
+                                    "/leader-beat", body, timeout=1.0)
+            except Exception:
+                pass
+
+    def _marquer_emetteur(self, body: Dict[str, Any]) -> None:
+        """Rafraîchit l'émetteur d'un battement/annonce de leader, même
+        lorsque son epoch/clé est en conflit avec le nôtre."""
+        leader_id = body.get("leader_id", "")
+        ip, port = body.get("ip"), int(body.get("port", 0) or 0)
+        if leader_id and ip and port:
+            self.state.update_peer(leader_id, {"ip": ip, "port": port,
+                                               "mode": "full"})
+        if leader_id:
+            self.state.touch_peer(leader_id, alive=True)
 
     def _leader_message(self) -> Dict[str, Any]:
         # Le carnet d'adresses voyage AVEC les messages du leader : chaque
@@ -685,6 +719,11 @@ class ConsensusManager:
         if not leader_id or not self.security.is_node_allowed(leader_id):
             return 403, {"error": "leader non whitelisté"}
 
+        # Même en conflit (deux leaders coexistants) : sans ce rafraîchissement,
+        # chacun marque l'autre « mort » après peer_timeout, les battements
+        # cessent et la partition ne peut plus se refermer.
+        self._marquer_emetteur(body)
+
         if self.role == Role.LEADER and leader_id != self.node_id:
             epoch = int(body.get("epoch", 0))
             if epoch > self.epoch or (epoch == self.epoch and body.get("key", "") < self.my_key_str()):
@@ -709,6 +748,9 @@ class ConsensusManager:
         epoch = int(body.get("epoch", 0))
         if not leader_id or not self.security.is_node_allowed(leader_id):
             return 403, {"error": "leader non whitelisté"}
+
+        # Même en conflit : garde l'émetteur rafraîchi (cf. handle_leader_beat).
+        self._marquer_emetteur(body)
 
         with self._lock:
             if leader_id == self.node_id:
