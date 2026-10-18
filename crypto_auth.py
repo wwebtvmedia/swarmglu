@@ -91,7 +91,9 @@ class NodeCrypto:
     @property
     def mode(self) -> str:
         """Mode cryptographique effectif : « cryptography » (ECDSA/ML-KEM
-        réels) ou « mock » (HMAC — REPLI sans interopérabilité)."""
+        réels) ou « mock » (HMAC pur-Python — REPLI de fonctionnement :
+        intégrité vérifiable, SANS authenticité ni résistance quantique,
+        ni interopérabilité avec un nœud « cryptography »)."""
         return "mock" if self._mock_mode else "cryptography"
 
     def _keys_filepath(self) -> Optional[str]:
@@ -210,7 +212,12 @@ class NodeCrypto:
         if isinstance(message, str):
             message = message.encode("utf-8")
         if self._mock_mode:
-            return hmac.new(self._ecdsa_priv, message, hashlib.sha256).hexdigest()
+            # Repli pur-Python : la clé MAC est dérivée de la clé PUBLIQUE,
+            # seule valeur que le vérificateur possède (cf. verify_signature).
+            # Conséquence assumée : intégrité seule, tout détenteur de la pub
+            # peut forger — production exigée : pip install cryptography.
+            return hmac.new(bytes.fromhex(self._ecdsa_pub[:32]),
+                            message, hashlib.sha256).hexdigest()
         sig_bytes = self._ecdsa_priv.sign(message, ec.ECDSA(hashes.SHA256()))
         return sig_bytes.hex()
 
@@ -239,8 +246,11 @@ class NodeCrypto:
         Retourne (shared_secret_bytes, ciphertext_hex).
         """
         if self._mock_mode:
-            secret = hashlib.sha256(f"shared:{peer_mlkem_pub_hex}:{os.urandom(16)}".encode()).digest()
-            ct = hashlib.sha256(secret + b":ct").hexdigest()
+            # Repli pur-Python : le « ciphertext » EST la graine du secret
+            # (deterministe des deux côtés, cf. decapsulate) — aucune
+            # sécurité d'encapsulation : production exigée : cryptography.
+            ct = os.urandom(32).hex()
+            secret = hashlib.sha256(f"shared:{ct}".encode()).digest()
             return secret, ct
 
         peer_pub_bytes = bytes.fromhex(peer_mlkem_pub_hex)
@@ -254,7 +264,7 @@ class NodeCrypto:
         Retourne shared_secret_bytes.
         """
         if self._mock_mode:
-            return hashlib.sha256(f"shared:{self.mlkem_pub_hex}:{ciphertext_hex}".encode()).digest()
+            return hashlib.sha256(f"shared:{ciphertext_hex}".encode()).digest()
 
         ct_bytes = bytes.fromhex(ciphertext_hex)
         return self._mlkem_priv.decapsulate(ct_bytes)

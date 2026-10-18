@@ -9,7 +9,7 @@
 #   2. dépôt SwarmGlu (clone si absent, sinon le dossier de ce script) ;
 #   3. roues `cryptography` (ECDSA/ML-KEM RÉELS) — optionnel, repli
 #      pur-Python toujours disponible ;
-#   4. vérification : suite de tests (113) + démo 3 nœuds = « essaim
+#   4. vérification : suite de tests (119) + démo 3 nœuds = « essaim
 #      créé et validé » ;
 #   5. affiche les commandes pour démarrer les nœuds de la salle.
 #
@@ -203,7 +203,7 @@ fi
 # 4. Vérification — la démo crée littéralement un essaim 3 nœuds
 # ------------------------------------------------------------------------------
 if [ "$RAPIDE" -eq 0 ]; then
-    etape "4/6" "suite de tests (113) — ~50 s"
+    etape "4/6" "suite de tests (119) — ~50 s"
     if python3 -m unittest discover -s tests 2>&1 | tail -3 | grep -q "^OK"; then
         ok "suite noyau VERT"
     else
