@@ -8,6 +8,32 @@ Prérequis   : Python 3.8+ (aucun pip) ; pour les tests Android : SDK ~/Android/
 Toute commande PC se lance depuis la racine du dépôt :  cd swarmglu
 
 --------------------------------------------------------------------------------
+0) INSTALLATION SUR UNE MACHINE LINUX NEUVE
+--------------------------------------------------------------------------------
+
+Une seule commande installe TOUT et valide la création d'essaim
+(paquets système, dépôt, roues crypto, suite 113 tests + démo 3 nœuds) :
+
+       git clone https://github.com/wwebtvmedia/swarmglu.git
+       cd swarmglu && ./install_essaim.sh
+
+Options :
+       ./install_essaim.sh --quick      # sans tests ni démo (~10 s)
+       ./install_essaim.sh --start      # + démarre le 1er nœud (pc-prof:7001)
+       ./install_essaim.sh --android    # + SDK Android : JDK 17, adb, émulateur,
+                                        #   image android-34 google_apis x86_64
+       ./install_essaim.sh --server     # + openssh-server (reçoit --deploy-249)
+       ./install_essaim.sh --repo URL   # clone depuis un autre dépôt
+
+Idempotent (ne réinstalle que le manquant). SANS Internet : copiez le
+dossier par USB — le script détecte son propre dépôt et installe uniquement
+les paquets système ; les roues `cryptography` deviennent optionnelles
+(repli pur-Python automatique, ECDSA/ML-KEM réels désactivés).
+
+Attendu (fin de script) : "MACHINE PRÊTE ✔" suivi des commandes de nœud
+(whitelist, professeur, élève, vérification /status + /ask).
+
+--------------------------------------------------------------------------------
 1) NON-RÉGRESSION COMPLÈTE (l'ordre recommandé)
 --------------------------------------------------------------------------------
 
