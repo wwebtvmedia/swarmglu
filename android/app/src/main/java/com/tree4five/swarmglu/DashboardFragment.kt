@@ -58,6 +58,7 @@ class DashboardFragment : Fragment() {
         view.findViewById<View>(R.id.btn_hotspot).setOnClickListener {
             val sortie = view.findViewById<TextView>(R.id.tv_hotspot)
             if (HotspotManager.actif) {
+                HotspotManager.arreter()
                 sortie.text = getString(R.string.hotspot_arrete)
                 return@setOnClickListener
             }
@@ -76,8 +77,13 @@ class DashboardFragment : Fragment() {
             CoreBridge.onBackground({ CoreBridge.whitelistAdd(nodeId) },
                 onError = { e -> flash(false, "$e") }
             ) { res ->
-                flash(res.optBoolean("ok"), res.toString())
-                input.setText("")
+                val ok = res.optBoolean("ok")
+                val msg = if (ok) getString(R.string.wl_added) else res.optString("error", res.toString())
+                flash(ok, msg)
+                if (ok) {
+                    input.setText("")
+                    CoreBridge.onBackground({ CoreBridge.status() }) { render(it) }
+                }
             }
         }
         startRefreshing()
@@ -93,8 +99,16 @@ class DashboardFragment : Fragment() {
     private fun render(st: JSONObject) {
         val v = view ?: return
         if (st.has("error")) {
-            v.findViewById<TextView>(R.id.tv_role).text = getString(R.string.state_stopped)
-            v.findViewById<TextView>(R.id.tv_role).setTextColor(Color.GRAY)
+            v.findViewById<TextView>(R.id.tv_role).apply {
+                text = getString(R.string.state_stopped)
+                setTextColor(Color.GRAY)
+            }
+            v.findViewById<TextView>(R.id.tv_identity).text = ""
+            v.findViewById<TextView>(R.id.tv_consensus).text = ""
+            v.findViewById<TextView>(R.id.tv_state).text = ""
+            v.findViewById<TextView>(R.id.tv_audit).text = ""
+            v.findViewById<TextView>(R.id.tv_peers).text = getString(R.string.no_peers)
+            v.findViewById<TextView>(R.id.tv_gateway).text = getString(R.string.no_neighbors)
             return
         }
         val c = st.optJSONObject("consensus") ?: JSONObject()

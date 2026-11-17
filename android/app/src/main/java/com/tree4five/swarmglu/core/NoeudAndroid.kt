@@ -47,6 +47,7 @@ class NoeudAndroid(
     private val voisins = HashMap<String, JSONObject>()
     private val ttlVoisin = 90.0
     private val maxSautsFederation = 2
+    @Volatile var actif = false
     private val serveur: Serveur
 
     init {
@@ -55,6 +56,7 @@ class NoeudAndroid(
     }
 
     fun demarrer() {
+        actif = true
         if (!whitelist.estAutorise(nodeId)) whitelist.ajouter(nodeId, "self-bootstrap")
         etat.setWhitelistNodes(whitelist.noeuds())
         val capacites = mutableListOf("node", "inference")
@@ -87,13 +89,18 @@ class NoeudAndroid(
 
     private fun capacetesAdd(c: MutableList<String>) { c.add("harnessdroid") }
 
-    fun arreter() { serveur.stop() }
+    fun arreter() {
+        actif = false
+        consensus.arreter()
+        try { serveur.stop() } catch (_: Exception) {}
+    }
 
     private fun filSync() {
         Thread {
             Thread.sleep(3000)
-            while (true) {
+            while (actif) {
                 Thread.sleep(5000)
+                if (!actif) break
                 try {
                     val leader = consensus.leaderId
                     val cible: JSONObject? = if (leader != null && leader != nodeId)
@@ -382,8 +389,9 @@ class NoeudAndroid(
     private fun filPasserelle() {
         Thread {
             Thread.sleep(3000)
-            while (true) {
+            while (actif) {
                 for (url in voisinsEssaims) {
+                    if (!actif) break
                     val addr = parseAdresse(url)
                     if (addr == null) continue
                     val (s, r) = transport.post(addr.first, addr.second,

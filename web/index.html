@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistant d'Installation d'Essaims — SwarmGlu (Tree4Five)</title>
+    <style>
+        :root {
+            --bg-primary: #0b1120;
+            --bg-secondary: #162032;
+            --bg-tertiary: #243247;
+            --accent: #38bdf8;
+            --accent-hover: #0284c7;
+            --emerald: #10b981;
+            --emerald-bg: rgba(16, 185, 129, 0.16);
+            --amber: #f59e0b;
+            --amber-bg: rgba(245, 158, 11, 0.16);
+            --rose: #f43f5e;
+            --rose-bg: rgba(244, 63, 94, 0.16);
+            --purple: #c084fc;
+            --purple-bg: rgba(192, 132, 252, 0.16);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #2d3e56;
+            --card-radius: 14px;
+            --code-bg: #070c16;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding-bottom: 80px;
+        }
+
+        header {
+            background: rgba(11, 17, 32, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, #38bdf8, #a855f7);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 4px 14px rgba(56, 189, 248, 0.35);
+        }
+
+        .brand-text h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-text p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        nav {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        nav a:hover, nav a.active {
+            color: var(--text-main);
+            background: var(--bg-tertiary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 2.5rem 1rem 2rem;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 14px;
+            border-radius: 9999px;
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--accent);
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1.2rem;
+            border: 1px solid rgba(56, 189, 248, 0.25);
+        }
+
+        .hero h2 {
+            font-size: 2.7rem;
+            font-weight: 800;
+            line-height: 1.15;
+            margin-bottom: 1rem;
+            background: linear-gradient(to right, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            max-width: 820px;
+            margin: 0 auto 1.8rem;
+        }
+
+        /* Archetype Selector Cards */
+        .archetypes-title {
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+
+        .archetypes-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 2.5rem;
+        }
+
+        @media (max-width: 850px) {
+            .archetypes-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .archetype-card {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+            text-align: left;
+            user-select: none;
+        }
+
+        .archetype-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent);
+            box-shadow: 0 12px 24px -6px rgba(0,0,0,0.4);
+        }
+
+        .archetype-card.selected {
+            border-color: var(--accent);
+            background: linear-gradient(180deg, rgba(56, 189, 248, 0.08) 0%, var(--bg-secondary) 100%);
+            box-shadow: 0 0 0 1px var(--accent), 0 12px 28px -6px rgba(56, 189, 248, 0.25);
+        }
+
+        .archetype-icon {
+            font-size: 2.4rem;
+            margin-bottom: 0.8rem;
+            display: inline-block;
+        }
+
+        .archetype-card h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .archetype-desc {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            line-height: 1.45;
+            margin-bottom: 0.8rem;
+        }
+
+        .archetype-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: #cbd5e1;
+        }
+
+        .tag-active {
+            background: var(--emerald-bg);
+            color: var(--emerald);
+        }
+
+        /* Section Cards */
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: 2rem;
+            margin-bottom: 2.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Alert Banners */
+        .banner {
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        .banner-android {
+            background: rgba(192, 132, 252, 0.12);
+            border: 1px solid rgba(192, 132, 252, 0.35);
+            color: #e9d5ff;
+        }
+
+        .banner-linux {
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            color: #a7f3d0;
+        }
+
+        .banner-patchwork {
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            color: #bae6fd;
+        }
+
+        /* Generator Grid */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+
+        .hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        input, select {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--accent);
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 10px 16px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+        }
+
+        .tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        /* Code box */
+        .code-box {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .code-box-header {
+            background: #0f172a;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .code-box pre {
+            padding: 1rem 1.25rem;
+            overflow-x: auto;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.9rem;
+            color: #38bdf8;
+            line-height: 1.5;
+        }
+
+        .btn-copy {
+            background: var(--bg-tertiary);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-copy:hover {
+            background: var(--accent);
+            color: #0f172a;
+            border-color: var(--accent);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #0f172a;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            color: #fff;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        /* Device cards */
+        .device-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.2rem;
+            margin-top: 1rem;
+        }
+
+        .device-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            position: relative;
+        }
+
+        .device-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-leader { background: var(--emerald-bg); color: var(--emerald); border: 1px solid var(--emerald); }
+        .badge-follower { background: rgba(56, 189, 248, 0.15); color: var(--accent); border: 1px solid var(--accent); }
+        .badge-android { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple); }
+
+        .device-card h4 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .device-info {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.8rem;
+        }
+
+        /* Simulation Canvas & Controls */
+        .sim-container {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .sim-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        #swarmCanvas {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            width: 100%;
+            height: 380px;
+            display: block;
+        }
+
+        .sim-panel {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .sim-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem;
+        }
+
+        .sim-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .sim-btn:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+        }
+
+        .sim-btn.danger {
+            border-color: var(--rose);
+            color: #fca5a5;
+        }
+
+        .sim-btn.danger:hover {
+            background: var(--rose-bg);
+        }
+
+        .sim-log {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-family: monospace;
+            font-size: 0.75rem;
+            height: 180px;
+            overflow-y: auto;
+            color: #cbd5e1;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+
+        .sim-log-entry {
+            margin-bottom: 4px;
+            line-height: 1.4;
+        }
+
+        .log-ts { color: var(--text-muted); }
+        .log-leader { color: var(--emerald); font-weight: bold; }
+        .log-kill { color: var(--rose); font-weight: bold; }
+        .log-elect { color: var(--amber); }
+
+        /* Guide steps */
+        .step-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 1.2rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .step-num {
+            width: 36px;
+            height: 36px;
+            background: var(--accent);
+            color: #0b1120;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .step-body h4 {
+            font-size: 1.15rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-body p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-bottom: 0.8rem;
+        }
+
+        /* FAQ Accordion */
+        .faq-item {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 0.8rem;
+            overflow: hidden;
+            background: var(--bg-primary);
+        }
+
+        .faq-question {
+            padding: 1rem 1.25rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .faq-question:hover {
+            color: var(--accent);
+        }
+
+        .faq-answer {
+            padding: 0 1.25rem 1rem;
+            color: var(--text-muted);
+            font-size: 0.92rem;
+            display: none;
+            border-top: 1px solid var(--border);
+            padding-top: 0.8rem;
+        }
+
+        .faq-item.open .faq-answer {
+            display: block;
+        }
+
+        .faq-item.open .faq-question {
+            color: var(--accent);
+        }
+
+        /* Toast */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--emerald);
+            color: #064e3b;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 1000;
+        }
+
+        #toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <a href="#" class="brand">
+            <div class="logo-icon">🐝</div>
+            <div class="brand-text">
+                <h1>SwarmGlu — Déploiement d'Essaim</h1>
+                <p>Assistant de configuration Wi-Fi local & consensus décentralisé</p>
+            </div>
+        </a>
+        <nav>
+            <a href="#archetypes">Types d'Essaim</a>
+            <a href="#wizard">Générateur</a>
+            <a href="#simulator">Simulateur</a>
+            <a href="#guide">Guide</a>
+            <a href="#faq">Dépannage</a>
+        </nav>
+    </header>
+
+    <div class="container">
+
+        <!-- Hero -->
+        <section class="hero">
+            <div class="hero-badge">⚡ 100% Hors-Ligne · Zéro Dépendance · Suite Tree4Five</div>
+            <h2>Comment déployer votre essaim ?</h2>
+            <p>
+                SwarmGlu s'adapte à votre matériel : que vous disposiez <strong>uniquement de smartphones Android (zéro PC)</strong>, 
+                d'un parc <strong>100% Linux</strong> ou d'un <strong>mélange hybride</strong>. Choisissez votre scénario pour obtenir la démarche exacte.
+            </p>
+        </section>
+
+        <!-- SÉLECTEUR D'ARCHÉTYPES -->
+        <div id="archetypes">
+            <div class="archetypes-title">Choisissez la typologie de votre essaim</div>
+            <div class="archetypes-grid">
+                
+                <!-- Archetype 1: Full Android -->
+                <div id="arch-android" class="archetype-card selected" onclick="selectArchetype('android')">
+                    <div class="archetype-icon">📱</div>
+                    <h3>
+                        Full Android
+                        <span class="tag tag-active">0 PC requis</span>
+                    </h3>
+                    <div class="archetype-desc">
+                        Uniquement des téléphones et tablettes Android. Le premier téléphone active le Wi-Fi (point d'accès), héberge la whitelist et sert d'amorce. Tout se pilote depuis l'application tactile !
+                    </div>
+                    <div class="archetype-tags">
+                        <span class="tag">Hotspot mobile</span>
+                        <span class="tag">Noyau Kotlin pur</span>
+                        <span class="tag">LLM on-device</span>
+                        <span class="tag">Interface tactile</span>
+                    </div>
+                </div>
+
+                <!-- Archetype 2: Patchwork -->
+                <div id="arch-patchwork" class="archetype-card" onclick="selectArchetype('patchwork')">
+                    <div class="archetype-icon">🧩</div>
+                    <h3>
+                        Patchwork / Hybride
+                        <span class="tag">Mixte</span>
+                    </h3>
+                    <div class="archetype-desc">
+                        Scénario classique d'une classe : 1 PC portable professeur (serveur Ollama / modèle lourd) + des tablettes ou téléphones pour chaque élève.
+                    </div>
+                    <div class="archetype-tags">
+                        <span class="tag">PC Linux / Win</span>
+                        <span class="tag">Tablettes élèves</span>
+                        <span class="tag">Ollama / GGUF</span>
+                        <span class="tag">Routage auto</span>
+                    </div>
+                </div>
+
+                <!-- Archetype 3: Full Linux -->
+                <div id="arch-linux" class="archetype-card" onclick="selectArchetype('linux')">
+                    <div class="archetype-icon">🐧</div>
+                    <h3>
+                        Full Linux
+                        <span class="tag">Serveurs & PC</span>
+                    </h3>
+                    <div class="archetype-desc">
+                        100% ordinateurs portables, mini-PC ou Raspberry Pi sous Linux. Contrôle via ligne de commande (CLI), scripts automatisés et auditabilité console.
+                    </div>
+                    <div class="archetype-tags">
+                        <span class="tag">cli.py</span>
+                        <span class="tag">Scripts bash</span>
+                        <span class="tag">install_essaim.sh</span>
+                        <span class="tag">Consensus P2P</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- SECTION 1: GÉNÉRATEUR D'ESSAIM (WIZARD) -->
+        <section id="wizard" class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">
+                        <span id="wizardIcon">📱</span> 
+                        <span id="wizardTitle">Générateur d'Essaim — Full Android (Zéro PC)</span>
+                    </div>
+                    <div id="wizardSubtitle" class="card-subtitle">
+                        Réglez le nombre de smartphones/tablettes pour générer la configuration exacte sur l'écran tactile.
+                    </div>
+                </div>
+                <button class="btn-primary" onclick="generateAll()">🔄 Mettre à jour</button>
+            </div>
+
+            <!-- Archetype dynamic explanation banner -->
+            <div id="archetypeBanner" class="banner banner-android">
+                <div style="font-size: 1.6rem;">📱</div>
+                <div>
+                    <strong>Mode 100% Android sélectionné :</strong> Aucun terminal ni ordinateur n'est requis. Le téléphone n°1 ouvre le Wi-Fi local (via le bouton <em>« 📡 Étendre l'essaim »</em> dans l'application) avec l'adresse IP <code>192.168.43.1</code>. Les autres téléphones s'y connectent et renseignent cette IP dans leurs réglages.
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="swarmId">Nom de l'Essaim (Swarm ID)</label>
+                    <input type="text" id="swarmId" value="salle-mobile" placeholder="ex. salle-mobile, classe-1">
+                    <div class="hint">Identifiant de partage pour les élèves.</div>
+                </div>
+
+                <div class="form-group" id="grp-netType">
+                    <label for="netType">Type de Réseau Wi-Fi</label>
+                    <select id="netType" onchange="onNetworkChange()">
+                        <option value="hotspot-android">Hotspot Wi-Fi du Téléphone n°1 (Recommandé)</option>
+                        <option value="router">Routeur Wi-Fi autonome de la classe (sans Internet)</option>
+                        <option value="hotspot-pc">Hotspot Wi-Fi ouvert par un PC portable</option>
+                    </select>
+                    <div class="hint">Tous les appareils doivent être connectés au même Wi-Fi.</div>
+                </div>
+
+                <div class="form-group" id="grp-seedIp">
+                    <label for="seedIp"><span id="lblSeedIp">IP du Téléphone Référent (Point d'accès)</span></label>
+                    <input type="text" id="seedIp" value="192.168.43.1" placeholder="ex. 192.168.43.1">
+                    <div class="hint" id="hintSeedIp">Par défaut sur Android hotspot : <code>192.168.43.1</code>.</div>
+                </div>
+
+                <div class="form-group" id="grp-seedPort">
+                    <label for="seedPort">Port HTTP du Nœud Référent</label>
+                    <input type="number" id="seedPort" value="7001">
+                    <div class="hint">Port standard de SwarmGlu : 7001 (TCP).</div>
+                </div>
+
+                <div class="form-group" id="grp-androidCount">
+                    <label for="androidCount">Nombre d'appareils Android Élèves</label>
+                    <input type="number" id="androidCount" min="1" max="40" value="4">
+                    <div class="hint">Smartphones ou tablettes participants.</div>
+                </div>
+
+                <div class="form-group" id="grp-pcCount">
+                    <label for="pcCount">Nombre d'ordinateurs portables (PC)</label>
+                    <input type="number" id="pcCount" min="0" max="40" value="0">
+                    <div class="hint">Ordinateurs portables Linux ou Windows.</div>
+                </div>
+
+                <div class="form-group" id="grp-llm">
+                    <label for="seedLlm">Fournisseur d'Inférence IA</label>
+                    <select id="seedLlm">
+                        <option value="mock" selected>Mode Démo Pédagogique (Mock Qwen — fonctionne partout)</option>
+                        <option value="llmprovider">Tree4Five LLM Provider on-device (/v1, llama.cpp mobile)</option>
+                        <option value="ollama">Ollama local sur PC (qwen2.5 / llama3 / phi3)</option>
+                        <option value="none">Aucun modèle (nœud relais / coordination seul)</option>
+                    </select>
+                    <div class="hint">Le pare-feu OSP v0.6 vérifiera l'ancrage de chaque réponse.</div>
+                </div>
+            </div>
+
+            <!-- Tabs Result -->
+            <div class="tabs">
+                <button class="tab-btn active" id="tabbtn-main" onclick="switchTab('tab-main')">📱 Configuration des Appareils</button>
+                <button class="tab-btn" id="tabbtn-whitelist" onclick="switchTab('tab-whitelist')">🔒 Whitelist (Contrôle d'accès)</button>
+                <button class="tab-btn" id="tabbtn-tests" onclick="switchTab('tab-tests')">🧪 Tests & Résilience</button>
+                <button class="tab-btn" id="tabbtn-export" onclick="switchTab('tab-export')">📦 Export & Fichiers</button>
+            </div>
+
+            <!-- Tab Main (Config) -->
+            <div id="tab-main" class="tab-pane active">
+                <div id="config-instructions"></div>
+                <div id="devices-container" class="device-grid"></div>
+            </div>
+
+            <!-- Tab Whitelist -->
+            <div id="tab-whitelist" class="tab-pane">
+                <div id="whitelist-instructions"></div>
+                <div class="code-box">
+                    <div class="code-box-header">
+                        <span id="whitelist-box-title">Initialisation de la Whitelist</span>
+                        <button class="btn-copy" onclick="copyCode('code-whitelist')">📋 Copier</button>
+                    </div>
+                    <pre id="code-whitelist">python3 cli.py whitelist init --nodes tel-prof,tel-eleve-1,tel-eleve-2,tel-eleve-3,tel-eleve-4</pre>
+                </div>
+            </div>
+
+            <!-- Tab Tests -->
+            <div id="tab-tests" class="tab-pane">
+                <div id="tests-content"></div>
+            </div>
+
+            <!-- Tab Export -->
+            <div id="tab-export" class="tab-pane">
+                <p style="margin-bottom: 1rem; color: var(--text-muted);">
+                    Téléchargez directement les fichiers prêts à l'emploi selon votre typologie d'essaim :
+                </p>
+                <div class="action-row">
+                    <button class="btn-primary" onclick="downloadDeployScript()">📜 Télécharger deploy_essaim.sh</button>
+                    <button class="btn-copy" style="padding: 10px 18px; font-size: 0.95rem;" onclick="downloadWhitelistJson()">📄 Télécharger whitelist.json</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: SIMULATEUR D'ESSAIM INTERACTIF -->
+        <section id="simulator" class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">🌐 Simulateur Interactif d'Essaim</div>
+                    <div class="card-subtitle">Visualisez en direct les échanges, le consensus par bail et le basculement automatique.</div>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    Leader actuel : <span id="simLeaderLabel" style="color: var(--emerald); font-weight: bold;">tel-prof</span> (Epoch <span id="simEpochLabel">1</span>)
+                </div>
+            </div>
+
+            <div class="sim-container">
+                <canvas id="swarmCanvas" width="750" height="380"></canvas>
+                <div class="sim-panel">
+                    <div style="font-size: 0.9rem; font-weight: 700; color: #cbd5e1;">Actions de Simulation</div>
+                    <div class="sim-controls">
+                        <button class="sim-btn" onclick="simTriggerBeat()">💓 Battement</button>
+                        <button class="sim-btn" onclick="simTriggerAsk()">❓ Question /ask</button>
+                        <button class="sim-btn danger" onclick="simKillLeader()">⚡ Kill Leader</button>
+                        <button class="sim-btn" onclick="simReviveAll()">♻️ Ressusciter</button>
+                    </div>
+                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Journal des Événements & Audit</div>
+                    <div id="simLog" class="sim-log">
+                        <div class="sim-log-entry"><span class="log-ts">[00:00]</span> <span class="log-leader">Essaim prêt</span> · Whitelist scellée avec les nœuds.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: GUIDE DÉTAILLÉ SELON TYPOLOGIE -->
+        <section id="guide" class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">📖 Guide Dédié à Votre Typologie</div>
+                    <div class="card-subtitle" id="guideSubtitle">Procédure pas à pas pour un essaim 100% Android sans ordinateur.</div>
+                </div>
+            </div>
+
+            <div id="guideStepsContainer" class="step-list">
+                <!-- Dynamically populated based on selected archetype -->
+            </div>
+        </section>
+
+        <!-- SECTION 4: DIAGNOSTIC & DÉPANNAGE -->
+        <section id="faq" class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">🛠️ Diagnostics & Questions Fréquentes</div>
+                    <div class="card-subtitle">Résolvez les petits blocages réseau courants en quelques secondes.</div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>📱 [Full Android] Comment connaître l'adresse IP du téléphone qui fait le partage ?</span>
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Lorsque vous activez le point d'accès sur Android (via le bouton <em>« 📡 Étendre l'essaim »</em> ou les paramètres Wi-Fi du téléphone), Android lui attribue quasiment toujours l'adresse IP <strong><code>192.168.43.1</code></strong>.<br>
+                    C'est cette adresse que les autres téléphones doivent renseigner dans <strong>Pairs seed</strong> : <code>192.168.43.1:7001</code>.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>🔒 [Full Android] Comment ajouter un téléphone à la Whitelist sans PC ?</span>
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Dans l'application SwarmGlu sur le téléphone Leader, allez dans l'onglet <strong>Tableau de bord</strong>. En bas de l'écran, sous la section <em>« Whitelist locale — ajouter un nœud »</em>, tapez l'identifiant du nouveau téléphone (ex. <code>tel-eleve-5</code>) et cliquez sur <strong>Ajouter</strong>. Le nœud est immédiatement autorisé et scellé dans le journal !
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>📡 [Wi-Fi Routeur] Les appareils ne se voient pas entre eux</span>
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    1. <strong>Isolation Wi-Fi (AP Isolation)</strong> : Dans les paramètres de votre routeur Wi-Fi autonome, assurez-vous que l'option « Isolation des clients » (*Client Isolation*) est <strong>désactivée</strong>, sinon le routeur empêche les appareils Wi-Fi de communiquer entre eux.<br>
+                    2. <strong>Pare-feu sur PC</strong> : Si un PC est présent, ouvrez le port TCP 7001 : <code>sudo ufw allow 7001/tcp</code>.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>🔋 [Android] La tablette se déconnecte lorsque l'écran s'éteint</span>
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Sur Android, le mode « Doze » coupe le réseau en veille prolongée.<br>
+                    Allez dans <em>Paramètres ▸ Applications ▸ SwarmGlu ▸ Batterie</em> et sélectionnez <strong>« Non restreinte »</strong> (*Unrestricted*). Le service d'arrière-plan maintiendra alors le nœud éveillé.
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast">Copié dans le presse-papier !</div>
+
+    <!-- Footer -->
+    <footer>
+        <p>SwarmGlu v2.0.3 · Suite Tree4Five Tools · PoC Djerba · 100% Hors-Ligne · Licence Apache 2.0</p>
+    </footer>
+
+    <!-- LOGIQUE JAVASCRIPT VANILLA -->
+    <script>
+        let currentArchetype = 'android'; // 'android', 'patchwork', 'linux'
+
+        let config = {
+            swarmId: 'salle-mobile',
+            netType: 'hotspot-android',
+            seedIp: '192.168.43.1',
+            seedPort: 7001,
+            seedLlm: 'mock',
+            androidCount: 4,
+            pcCount: 0
+        };
+
+        function selectArchetype(arch) {
+            currentArchetype = arch;
+            document.querySelectorAll('.archetype-card').forEach(c => c.classList.remove('selected'));
+            document.getElementById(`arch-${arch}`).classList.add('selected');
+
+            const banner = document.getElementById('archetypeBanner');
+            const wizardTitle = document.getElementById('wizardTitle');
+            const wizardSubtitle = document.getElementById('wizardSubtitle');
+            const wizardIcon = document.getElementById('wizardIcon');
+            const lblSeedIp = document.getElementById('lblSeedIp');
+            const hintSeedIp = document.getElementById('hintSeedIp');
+            const grpPc = document.getElementById('grp-pcCount');
+            const grpAndroid = document.getElementById('grp-androidCount');
+            const swarmInput = document.getElementById('swarmId');
+            const netSelect = document.getElementById('netType');
+            const seedIpInput = document.getElementById('seedIp');
+
+            if (arch === 'android') {
+                wizardIcon.innerText = '📱';
+                wizardTitle.innerText = "Générateur d'Essaim — Full Android (Zéro PC)";
+                wizardSubtitle.innerText = "100% téléphones et tablettes Android. Pas d'ordinateur requis, tout se pilote via l'écran tactile.";
+                banner.className = 'banner banner-android';
+                banner.innerHTML = `
+                    <div style="font-size: 1.6rem;">📱</div>
+                    <div>
+                        <strong>Mode 100% Android :</strong> Aucun PC nécessaire ! Le téléphone n°1 active son point d'accès Wi-Fi (IP : <code>192.168.43.1</code>). Tous les autres téléphones se connectent à ce Wi-Fi et rejoignent l'essaim. La whitelist et les questions sont gérées dans l'application.
+                    </div>
+                `;
+                lblSeedIp.innerText = "IP du Téléphone Référent (Point d'accès)";
+                hintSeedIp.innerHTML = "Généralement <code>192.168.43.1</code> sur Android en mode hotspot.";
+                grpPc.style.display = 'none';
+                grpAndroid.style.display = 'flex';
+                config.pcCount = 0;
+                config.androidCount = 4;
+                document.getElementById('androidCount').value = 4;
+                document.getElementById('pcCount').value = 0;
+                swarmInput.value = 'salle-mobile';
+                netSelect.value = 'hotspot-android';
+                seedIpInput.value = '192.168.43.1';
+            } 
+            else if (arch === 'linux') {
+                wizardIcon.innerText = '🐧';
+                wizardTitle.innerText = "Générateur d'Essaim — Full Linux (Laptops & Serveurs)";
+                wizardSubtitle.innerText = "100% machines Linux. Gestion via terminal CLI, scripts bash et processus autonomes.";
+                banner.className = 'banner banner-linux';
+                banner.innerHTML = `
+                    <div style="font-size: 1.6rem;">🐧</div>
+                    <div>
+                        <strong>Mode 100% Linux :</strong> Chaque machine exécute le noyau Python standard sans dépendance pip. Un poste fait office de seed/leader, les autres se connectent avec <code>cli.py serve --peers</code>.
+                    </div>
+                `;
+                lblSeedIp.innerText = "IP du PC Linux Maître / Seed";
+                hintSeedIp.innerHTML = "IP Wi-Fi obtenue via la commande <code>ip addr</code>.";
+                grpPc.style.display = 'flex';
+                grpAndroid.style.display = 'none';
+                config.pcCount = 3;
+                config.androidCount = 0;
+                document.getElementById('pcCount').value = 3;
+                document.getElementById('androidCount').value = 0;
+                swarmInput.value = 'salle-linux';
+                netSelect.value = 'router';
+                seedIpInput.value = '192.168.4.10';
+            } 
+            else { // Patchwork
+                wizardIcon.innerText = '🧩';
+                wizardTitle.innerText = "Générateur d'Essaim — Patchwork (Mixte PC Prof + Tablettes Élèves)";
+                wizardSubtitle.innerText = "Le cas d'école idéal : un PC professeur puissant (avec Ollama) et des tablettes Android pour chaque élève.";
+                banner.className = 'banner banner-patchwork';
+                banner.innerHTML = `
+                    <div style="font-size: 1.6rem;">🧩</div>
+                    <div>
+                        <strong>Mode Patchwork / Hybride :</strong> Le PC professeur centralise le modèle lourd (Ollama / Qwen / Llama) et orchestre l'essaim. Les élèves interrogent l'essaim depuis leurs tablettes Android.
+                    </div>
+                `;
+                lblSeedIp.innerText = "IP du PC Professeur (Seed)";
+                hintSeedIp.innerHTML = "IP Wi-Fi du PC prof (ex. <code>192.168.4.10</code>).";
+                grpPc.style.display = 'flex';
+                grpAndroid.style.display = 'flex';
+                config.pcCount = 1;
+                config.androidCount = 4;
+                document.getElementById('pcCount').value = 1;
+                document.getElementById('androidCount').value = 4;
+                swarmInput.value = 'classe-djerba';
+                netSelect.value = 'router';
+                seedIpInput.value = '192.168.4.10';
+            }
+
+            generateAll();
+            updateGuide();
+        }
+
+        function onNetworkChange() {
+            const netType = document.getElementById('netType').value;
+            const ipInput = document.getElementById('seedIp');
+            if (netType === 'hotspot-android') {
+                ipInput.value = '192.168.43.1';
+            } else if (netType === 'hotspot-pc') {
+                ipInput.value = '10.42.0.1';
+            } else {
+                ipInput.value = '192.168.4.10';
+            }
+            generateAll();
+        }
+
+        function generateAll() {
+            config.swarmId = document.getElementById('swarmId').value.trim() || 'salle-1';
+            config.netType = document.getElementById('netType').value;
+            config.seedIp = document.getElementById('seedIp').value.trim() || '192.168.43.1';
+            config.seedPort = parseInt(document.getElementById('seedPort').value, 10) || 7001;
+            config.seedLlm = document.getElementById('seedLlm').value;
+            config.pcCount = Math.max(0, parseInt(document.getElementById('pcCount').value, 10) || 0);
+            config.androidCount = Math.max(0, parseInt(document.getElementById('androidCount').value, 10) || 0);
+
+            renderConfigTab();
+            renderWhitelistTab();
+            renderTestsTab();
+            simInitNodes();
+        }
+
+        function renderConfigTab() {
+            const instr = document.getElementById('config-instructions');
+            const container = document.getElementById('devices-container');
+            container.innerHTML = '';
+
+            if (currentArchetype === 'android') {
+                instr.innerHTML = `
+                    <p style="margin-bottom: 1rem; color: var(--text-muted);">
+                        Voici la fiche de réglage pour chaque téléphone/tablette. <strong>Aucune ligne de commande</strong> : saisissez simplement ces valeurs dans l'écran <strong>⚙ Réglages</strong> de l'application SwarmGlu.
+                    </p>
+                `;
+
+                // Téléphone 1 (Hotspot / Seed)
+                const cardSeed = document.createElement('div');
+                cardSeed.className = 'device-card';
+                cardSeed.innerHTML = `
+                    <span class="device-badge badge-leader">Point d'accès / Leader</span>
+                    <h4>📱 Téléphone n°1 (Référent)</h4>
+                    <div class="device-info" style="line-height: 1.8;">
+                        • <strong>Action 1</strong> : Activer <em>« 📡 Étendre l'essaim »</em> (Hotspot Wi-Fi)<br>
+                        • <strong>Identifiant</strong> : <code>tel-prof</code><br>
+                        • <strong>Mode</strong> : <code>full</code><br>
+                        • <strong>Pairs seed</strong> : <em>(laisser vide)</em><br>
+                        • <strong>Essaim</strong> : <code>${config.swarmId}</code>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--emerald);">✓ Activer l'interrupteur « Nœud » en premier !</div>
+                `;
+                container.appendChild(cardSeed);
+
+                // Autres téléphones
+                for (let i = 1; i <= config.androidCount; i++) {
+                    const card = document.createElement('div');
+                    card.className = 'device-card';
+                    card.innerHTML = `
+                        <span class="device-badge badge-android">Android Participant</span>
+                        <h4>📱 Téléphone Élève n°${i}</h4>
+                        <div class="device-info" style="line-height: 1.8;">
+                            • <strong>Connexion</strong> : Se connecter au Wi-Fi du Téléphone n°1<br>
+                            • <strong>Identifiant</strong> : <code>tel-eleve-${i}</code><br>
+                            • <strong>Mode</strong> : <code>follower</code><br>
+                            • <strong>Pairs seed</strong> : <code>${config.seedIp}:${config.seedPort}</code><br>
+                            • <strong>Essaim</strong> : <code>${config.swarmId}</code>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--accent);">✓ Basculer l'interrupteur « Nœud »</div>
+                    `;
+                    container.appendChild(card);
+                }
+            } 
+            else if (currentArchetype === 'linux') {
+                instr.innerHTML = `
+                    <p style="margin-bottom: 1rem; color: var(--text-muted);">
+                        Commandes à lancer dans le terminal sur chaque PC Linux. Chaque nœud s'exécute de façon autonome.
+                    </p>
+                `;
+
+                // PC 1
+                const cardProf = document.createElement('div');
+                cardProf.className = 'device-card';
+                let llm = config.seedLlm === 'ollama' ? '--gguf-url http://127.0.0.1:11434 --gguf-models qwen2.5:0.5b' : '--mock-inference';
+                const cmdProf = `python3 cli.py serve --node-id pc-linux-1 --port ${config.seedPort} --mode full --swarm-id ${config.swarmId} --advertise-ip ${config.seedIp} --whitelist-file whitelist.json ${llm}`;
+                cardProf.innerHTML = `
+                    <span class="device-badge badge-leader">Seed / Full</span>
+                    <h4>🐧 PC Linux n°1 (Référent)</h4>
+                    <div class="device-info">IP : <code>${config.seedIp}</code> · Port : <code>${config.seedPort}</code></div>
+                    <div class="code-box"><pre style="font-size: 0.8rem;">${cmdProf}</pre></div>
+                    <button class="btn-copy" onclick="copyDirect('${cmdProf.replace(/\n/g, ' ')}')">📋 Copier commande</button>
+                `;
+                container.appendChild(cardProf);
+
+                // Autres PC
+                for (let i = 2; i <= config.pcCount; i++) {
+                    const card = document.createElement('div');
+                    card.className = 'device-card';
+                    const cmd = `python3 cli.py serve --node-id pc-linux-${i} --port 7001 --mode follower --peers ${config.seedIp}:${config.seedPort} --swarm-id ${config.swarmId}`;
+                    card.innerHTML = `
+                        <span class="device-badge badge-follower">Follower</span>
+                        <h4>🐧 PC Linux n°${i}</h4>
+                        <div class="device-info">Identifiant : <code>pc-linux-${i}</code></div>
+                        <div class="code-box"><pre style="font-size: 0.8rem;">${cmd}</pre></div>
+                        <button class="btn-copy" onclick="copyDirect('${cmd.replace(/\n/g, ' ')}')">📋 Copier commande</button>
+                    `;
+                    container.appendChild(card);
+                }
+            } 
+            else { // Patchwork
+                instr.innerHTML = `
+                    <p style="margin-bottom: 1rem; color: var(--text-muted);">
+                        Scénario hybride : démarrez le PC Professeur en premier, puis lancez les tablettes Android et PC élèves.
+                    </p>
+                `;
+
+                // PC Prof
+                const cardProf = document.createElement('div');
+                cardProf.className = 'device-card';
+                let llm = config.seedLlm === 'ollama' ? '--gguf-url http://127.0.0.1:11434 --gguf-models qwen2.5:0.5b' : '--mock-inference';
+                const cmdProf = `python3 cli.py serve --node-id pc-prof --port ${config.seedPort} --mode full --swarm-id ${config.swarmId} --advertise-ip ${config.seedIp} --whitelist-file whitelist.json ${llm}`;
+                cardProf.innerHTML = `
+                    <span class="device-badge badge-leader">PC Professeur (IA)</span>
+                    <h4>💻 PC Professeur</h4>
+                    <div class="device-info">IP : <code>${config.seedIp}</code> · Ollama / Modèle partagé</div>
+                    <div class="code-box"><pre style="font-size: 0.8rem;">${cmdProf}</pre></div>
+                    <button class="btn-copy" onclick="copyDirect('${cmdProf.replace(/\n/g, ' ')}')">📋 Copier commande</button>
+                `;
+                container.appendChild(cardProf);
+
+                // Tablettes Android
+                for (let i = 1; i <= config.androidCount; i++) {
+                    const card = document.createElement('div');
+                    card.className = 'device-card';
+                    card.innerHTML = `
+                        <span class="device-badge badge-android">Android Élève</span>
+                        <h4>📱 Tablette Élève n°${i}</h4>
+                        <div class="device-info" style="line-height: 1.8;">
+                            • <strong>Identifiant</strong> : <code>tab-eleve-${i}</code><br>
+                            • <strong>Pairs seed</strong> : <code>${config.seedIp}:${config.seedPort}</code><br>
+                            • <strong>Mode</strong> : <code>follower</code>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--emerald);">✓ Activer interrupteur « Nœud »</div>
+                    `;
+                    container.appendChild(card);
+                }
+            }
+        }
+
+        function renderWhitelistTab() {
+            const instr = document.getElementById('whitelist-instructions');
+            const codeBox = document.getElementById('code-whitelist');
+
+            let nodes = [];
+            if (currentArchetype === 'android') {
+                nodes.push('tel-prof');
+                for (let i = 1; i <= config.androidCount; i++) nodes.push(`tel-eleve-${i}`);
+
+                instr.innerHTML = `
+                    <p style="margin-bottom: 1rem; color: var(--text-muted);">
+                        📱 <strong>En mode Full Android sans PC :</strong><br>
+                        Vous pouvez ajouter vos téléphones directement depuis l'application sur le téléphone n°1 !<br>
+                        Allez dans l'onglet <strong>Tableau de bord</strong>, descendez à <em>« Whitelist locale — ajouter un nœud »</em>, entrez l'identifiant (ex. <code>tel-eleve-1</code>) et appuyez sur <strong>Ajouter</strong>.<br><br>
+                        <em>Si vous préférez préparer le fichier <code>whitelist.json</code> à l'avance et le copier sur les téléphones :</em>
+                    </p>
+                `;
+            } else if (currentArchetype === 'linux') {
+                for (let i = 1; i <= config.pcCount; i++) nodes.push(`pc-linux-${i}`);
+                instr.innerHTML = `<p style="margin-bottom: 1rem; color: var(--text-muted);">Lancez cette commande sur le PC n°1 pour générer <code>whitelist.json</code> :</p>`;
+            } else {
+                nodes.push('pc-prof');
+                for (let i = 1; i <= config.androidCount; i++) nodes.push(`tab-eleve-${i}`);
+                if (config.pcCount > 0) {
+                    for (let i = 1; i <= config.pcCount; i++) nodes.push(`pc-eleve-${i}`);
+                }
+                instr.innerHTML = `<p style="margin-bottom: 1rem; color: var(--text-muted);">Lancez cette commande sur le PC professeur avant de lancer les tablettes :</p>`;
+            }
+
+            codeBox.innerText = `python3 cli.py whitelist init --nodes ${nodes.join(',')}`;
+        }
+
+        function renderTestsTab() {
+            const content = document.getElementById('tests-content');
+            if (currentArchetype === 'android') {
+                content.innerHTML = `
+                    <div style="line-height: 1.8; color: #cbd5e1; font-size: 0.95rem;">
+                        <h4 style="color: var(--accent); margin-bottom: 0.5rem;">Comment tester votre essaim 100% Android ?</h4>
+                        <ol style="margin-left: 1.5rem; margin-bottom: 1.5rem;">
+                            <li><strong>Vérifier les pairs connectés :</strong> Sur n'importe quel téléphone, regardez l'onglet <em>Tableau de bord</em>. Vous devez voir le rôle (<code>LEADER</code> sur le téléphone n°1, <code>FOLLOWER</code> sur les autres) et la liste des téléphones vivants avec un voyant vert <code>●</code>.</li>
+                            <li><strong>Poser une question d'élève :</strong> Ouvrez l'onglet <strong>Élève</strong> sur le téléphone élève, tapez <em>« Quelle est la capitale de la Tunisie ? »</em> et cliquez sur <strong>Demander à l'essaim</strong>. La requête est transmise au leader et la réponse s'affiche avec le verdict OSP en vert !</li>
+                            <li><strong>Tester la tolérance aux pannes (Coupure) :</strong> Désactivez le nœud du Téléphone n°1. En moins de 6 secondes, l'un des téléphones élèves s'auto-proclame nouveau Leader (Epoch 2) et l'essaim continue de répondre aux élèves sans aucune interruption !</li>
+                            <li><strong>Vérifier l'Audit :</strong> Allez dans l'onglet <strong>Audit</strong> et cliquez sur <em>« Vérifier la chaîne »</em> : vous verrez s'afficher <em>« ✓ CHAÎNE INTACTE »</em> certifiant que tous les événements sont scellés.</li>
+                        </ol>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <p style="margin-bottom: 1rem; color: var(--text-muted);">Commandes de validation depuis le terminal :</p>
+                    <div class="code-box">
+                        <div class="code-box-header"><span>1. Vérifier l'état de l'essaim</span><button class="btn-copy" onclick="copyDirect('python3 cli.py status --url http://${config.seedIp}:${config.seedPort}')">📋 Copier</button></div>
+                        <pre>python3 cli.py status --url http://${config.seedIp}:${config.seedPort}</pre>
+                    </div>
+                    <div class="code-box">
+                        <div class="code-box-header"><span>2. Poser une question d'élève (routage + OSP)</span><button class="btn-copy" onclick="copyDirect('python3 cli.py ask --url http://${config.seedIp}:${config.seedPort} --prompt &quot;Quelle est la capitale de la Tunisie ?&quot; --student eleve-1')">📋 Copier</button></div>
+                        <pre>python3 cli.py ask --url http://${config.seedIp}:${config.seedPort} --prompt "Quelle est la capitale de la Tunisie ?" --student eleve-1</pre>
+                    </div>
+                    <div class="code-box">
+                        <div class="code-box-header"><span>3. Vérifier la chaîne de hachage immuable (Audit)</span><button class="btn-copy" onclick="copyDirect('python3 cli.py audit verify --data-dir data/pc-prof')">📋 Copier</button></div>
+                        <pre>python3 cli.py audit verify --data-dir data/pc-prof</pre>
+                    </div>
+                `;
+            }
+        }
+
+        function updateGuide() {
+            const container = document.getElementById('guideStepsContainer');
+            const sub = document.getElementById('guideSubtitle');
+
+            if (currentArchetype === 'android') {
+                sub.innerText = "Procédure complète pour un essaim 100% Android sans ordinateur portable.";
+                container.innerHTML = `
+                    <div class="step-item">
+                        <div class="step-num">1</div>
+                        <div class="step-body">
+                            <h4>Activer le Wi-Fi (Point d'accès) sur le Téléphone n°1</h4>
+                            <p>Ouvrez l'application SwarmGlu sur le Téléphone n°1, allez sur le tableau de bord et appuyez sur <strong>« 📡 Étendre l'essaim »</strong>. Un hotspot local est créé. Sur les autres téléphones, connectez-vous à ce réseau Wi-Fi.</p>
+                            <div class="hint">L'adresse IP du téléphone émetteur est automatiquement <code>192.168.43.1</code>.</div>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">2</div>
+                        <div class="step-body">
+                            <h4>Configurer le Téléphone n°1 (Leader)</h4>
+                            <p>Dans SwarmGlu ▸ ⚙ Réglages : réglez <strong>Identifiant</strong> = <code>tel-prof</code>, <strong>Mode</strong> = <code>full</code>, puis basculez l'interrupteur <strong>Nœud</strong> sur actif. Il s'élit Leader (vert).</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">3</div>
+                        <div class="step-body">
+                            <h4>Connecter les Téléphones Élèves</h4>
+                            <p>Sur chaque téléphone élève, réglez <strong>Pairs seed</strong> = <code>192.168.43.1:7001</code> et <strong>Mode</strong> = <code>follower</code>. Activez le nœud : ils apparaissent immédiatement dans la liste des pairs vivants !</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">4</div>
+                        <div class="step-body">
+                            <h4>Gérer la Whitelist directement sur l'écran</h4>
+                            <p>Sur le Téléphone n°1, ajoutez les identifiants des élèves dans la section <em>« Whitelist locale »</em> d'un simple clic.</p>
+                        </div>
+                    </div>
+                `;
+            } else if (currentArchetype === 'linux') {
+                sub.innerText = "Procédure pour déployer un essaim 100% Linux via ligne de commande.";
+                container.innerHTML = `
+                    <div class="step-item">
+                        <div class="step-num">1</div>
+                        <div class="step-body">
+                            <h4>Installation système en 1 commande</h4>
+                            <p>Sur chaque machine Linux neuve, exécutez le script d'installation tout-en-un :</p>
+                            <div class="code-box"><pre>git clone https://github.com/wwebtvmedia/swarmglu.git && cd swarmglu && ./install_essaim.sh</pre></div>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">2</div>
+                        <div class="step-body">
+                            <h4>Initialiser la Whitelist</h4>
+                            <p>Générez la racine de confiance sur le PC n°1 : <code>python3 cli.py whitelist init --nodes pc-1,pc-2,pc-3</code>.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">3</div>
+                        <div class="step-body">
+                            <h4>Démarrer les nœuds</h4>
+                            <p>Lancez le nœud seed en premier, puis les nœuds satellites avec <code>--peers &lt;IP_SEED&gt;:7001</code>.</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                sub.innerText = "Procédure hybride : PC Professeur (Ollama/Serveur) + Tablettes Android.";
+                container.innerHTML = `
+                    <div class="step-item">
+                        <div class="step-num">1</div>
+                        <div class="step-body">
+                            <h4>Préparer le Wi-Fi de la classe</h4>
+                            <p>Connectez le PC et les tablettes au même routeur Wi-Fi (ou point d'accès du PC). Repérez l'IP Wi-Fi du PC (ex. <code>192.168.4.10</code>).</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">2</div>
+                        <div class="step-body">
+                            <h4>Démarrer le PC Professeur</h4>
+                            <p>Lancez le nœud avec le modèle Ollama : <code>python3 cli.py serve --node-id pc-prof --gguf-url http://127.0.0.1:11434 --gguf-models qwen2.5:0.5b</code>.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">3</div>
+                        <div class="step-body">
+                            <h4>Rejoindre depuis les tablettes</h4>
+                            <p>Dans l'app Android de chaque élève, renseignez <strong>Pairs seed</strong> = <code>192.168.4.10:7001</code> et activez l'interrupteur.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // --- SIMULATEUR CANVAS ---
+        const canvas = document.getElementById('swarmCanvas');
+        const ctx = canvas.getContext('2d');
+        let simNodes = [];
+        let simPackets = [];
+        let simEpoch = 1;
+        let simLeaderId = 'tel-prof';
+
+        function simInitNodes() {
+            simNodes = [];
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(centerX, centerY) - 55;
+
+            if (currentArchetype === 'android') {
+                const total = 1 + config.androidCount;
+                simNodes.push({
+                    id: 'tel-prof',
+                    label: 'tel-prof (Hotspot)',
+                    ip: config.seedIp,
+                    type: 'android',
+                    isSeed: true,
+                    alive: true,
+                    x: centerX,
+                    y: centerY - (total > 1 ? radius * 0.75 : 0),
+                    role: 'leader'
+                });
+
+                for (let i = 1; i <= config.androidCount; i++) {
+                    const angle = Math.PI / 2 + (i / config.androidCount) * 2 * Math.PI;
+                    simNodes.push({
+                        id: `tel-eleve-${i}`,
+                        label: `tel-${i}`,
+                        ip: `192.168.43.${10 + i}`,
+                        type: 'android',
+                        alive: true,
+                        x: centerX + radius * Math.cos(angle),
+                        y: centerY + radius * Math.sin(angle),
+                        role: 'follower'
+                    });
+                }
+                simLeaderId = 'tel-prof';
+            } 
+            else if (currentArchetype === 'linux') {
+                const total = config.pcCount;
+                for (let i = 1; i <= config.pcCount; i++) {
+                    const angle = (i / total) * 2 * Math.PI;
+                    simNodes.push({
+                        id: `pc-linux-${i}`,
+                        label: `pc-${i}`,
+                        ip: `192.168.4.${10 + i}`,
+                        type: 'linux',
+                        alive: true,
+                        x: centerX + radius * Math.cos(angle),
+                        y: centerY + radius * Math.sin(angle),
+                        role: i === 1 ? 'leader' : 'follower'
+                    });
+                }
+                simLeaderId = 'pc-linux-1';
+            } 
+            else { // Patchwork
+                simNodes.push({
+                    id: 'pc-prof',
+                    label: 'pc-prof (Ollama)',
+                    ip: config.seedIp,
+                    type: 'prof',
+                    alive: true,
+                    x: centerX,
+                    y: centerY - radius * 0.75,
+                    role: 'leader'
+                });
+
+                const totalSat = config.androidCount + config.pcCount;
+                let satIdx = 0;
+                for (let i = 1; i <= config.androidCount; i++) {
+                    const angle = Math.PI / 2 + (satIdx / totalSat) * 2 * Math.PI;
+                    simNodes.push({
+                        id: `tab-eleve-${i}`,
+                        label: `tab-${i}`,
+                        ip: `192.168.4.${50 + i}`,
+                        type: 'android',
+                        alive: true,
+                        x: centerX + radius * Math.cos(angle),
+                        y: centerY + radius * Math.sin(angle),
+                        role: 'follower'
+                    });
+                    satIdx++;
+                }
+                for (let i = 1; i <= config.pcCount; i++) {
+                    const angle = Math.PI / 2 + (satIdx / totalSat) * 2 * Math.PI;
+                    simNodes.push({
+                        id: `pc-eleve-${i}`,
+                        label: `pc-${i}`,
+                        ip: `192.168.4.${20 + i}`,
+                        type: 'linux',
+                        alive: true,
+                        x: centerX + radius * Math.cos(angle),
+                        y: centerY + radius * Math.sin(angle),
+                        role: 'follower'
+                    });
+                    satIdx++;
+                }
+                simLeaderId = 'pc-prof';
+            }
+
+            updateSimUi();
+        }
+
+        function updateSimUi() {
+            document.getElementById('simLeaderLabel').innerText = simLeaderId || 'Élection...';
+            document.getElementById('simEpochLabel').innerText = simEpoch;
+        }
+
+        function logSim(msg) {
+            const logBox = document.getElementById('simLog');
+            const now = new Date();
+            const ts = `[${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}]`;
+            const entry = document.createElement('div');
+            entry.className = 'sim-log-entry';
+            entry.innerHTML = `<span class="log-ts">${ts}</span> ${msg}`;
+            logBox.prepend(entry);
+        }
+
+        function simTriggerBeat() {
+            const leader = simNodes.find(n => n.id === simLeaderId && n.alive);
+            if (!leader) return;
+            simNodes.forEach(node => {
+                if (node.alive && node.id !== leader.id) {
+                    simPackets.push({
+                        fromX: leader.x, fromY: leader.y,
+                        toX: node.x, toY: node.y,
+                        progress: 0,
+                        color: '#10b981'
+                    });
+                }
+            });
+            logSim(`💓 <strong>Battement</strong> émis par <code>${leader.id}</code> (Bail renouvelé 6s)`);
+        }
+
+        function simTriggerAsk() {
+            const aliveFollowers = simNodes.filter(n => n.alive && n.id !== simLeaderId);
+            const leader = simNodes.find(n => n.id === simLeaderId && n.alive);
+            if (!leader || aliveFollowers.length === 0) return;
+
+            const client = aliveFollowers[Math.floor(Math.random() * aliveFollowers.length)];
+            simPackets.push({
+                fromX: client.x, fromY: client.y,
+                toX: leader.x, toY: leader.y,
+                progress: 0,
+                color: '#38bdf8'
+            });
+
+            setTimeout(() => {
+                logSim(`❓ <code>${client.id}</code> pose une question à l'essaim...`);
+                setTimeout(() => {
+                    logSim(`🛡️ Pare-feu OSP v0.6 : <strong>g = 0.85</strong> (VERIFIED, ancrage certifié)`);
+                    logSim(`📜 Événement <code>request_routed</code> scellé dans l'audit.`);
+                }, 400);
+            }, 300);
+        }
+
+        function simKillLeader() {
+            const leader = simNodes.find(n => n.id === simLeaderId);
+            if (!leader || !leader.alive) return;
+            leader.alive = false;
+            leader.role = 'dead';
+            logSim(`⚡ <strong>PANNE :</strong> <code>${leader.id}</code> s'éteint (kill -9)!`);
+            simLeaderId = null;
+            updateSimUi();
+
+            setTimeout(() => {
+                const aliveNodes = simNodes.filter(n => n.alive);
+                if (aliveNodes.length > 0) {
+                    aliveNodes.sort((a, b) => a.id.localeCompare(b.id));
+                    const newLeader = aliveNodes[0];
+                    newLeader.role = 'leader';
+                    simLeaderId = newLeader.id;
+                    simEpoch++;
+                    logSim(`👑 <strong>RÉÉLECTION :</strong> <code>${newLeader.id}</code> devient LEADER (Epoch ${simEpoch})!`);
+                    updateSimUi();
+                    simTriggerBeat();
+                }
+            }, 1000);
+        }
+
+        function simReviveAll() {
+            simNodes.forEach(n => {
+                n.alive = true;
+                n.role = (n.id === simNodes[0].id) ? 'leader' : 'follower';
+            });
+            simLeaderId = simNodes[0].id;
+            simEpoch++;
+            logSim(`♻️ Nœuds rallumés. Essaim stabilisé sur <code>${simLeaderId}</code>.`);
+            updateSimUi();
+        }
+
+        function renderSim() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Liens mesh
+            ctx.lineWidth = 1;
+            for (let i = 0; i < simNodes.length; i++) {
+                for (let j = i + 1; j < simNodes.length; j++) {
+                    const n1 = simNodes[i];
+                    const n2 = simNodes[j];
+                    if (n1.alive && n2.alive) {
+                        ctx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+                        ctx.beginPath();
+                        ctx.moveTo(n1.x, n1.y);
+                        ctx.lineTo(n2.x, n2.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // Paquets animés
+            for (let i = simPackets.length - 1; i >= 0; i--) {
+                const p = simPackets[i];
+                p.progress += 0.04;
+                const px = p.fromX + (p.toX - p.fromX) * p.progress;
+                const py = p.fromY + (p.toY - p.fromY) * p.progress;
+
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(px, py, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (p.progress >= 1) simPackets.splice(i, 1);
+            }
+
+            // Nœuds
+            simNodes.forEach(node => {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 22, 0, Math.PI * 2);
+
+                if (!node.alive) {
+                    ctx.fillStyle = '#1e293b';
+                    ctx.strokeStyle = '#f43f5e';
+                } else if (node.role === 'leader') {
+                    ctx.fillStyle = '#064e3b';
+                    ctx.strokeStyle = '#10b981';
+                } else if (node.type === 'android') {
+                    ctx.fillStyle = '#3b0764';
+                    ctx.strokeStyle = '#c084fc';
+                } else {
+                    ctx.fillStyle = '#082f49';
+                    ctx.strokeStyle = '#38bdf8';
+                }
+
+                ctx.lineWidth = 3;
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                let icon = node.type === 'android' ? '📱' : (node.type === 'prof' ? '💻' : '🐧');
+                if (!node.alive) icon = '❌';
+                else if (node.role === 'leader') icon = '👑';
+                ctx.fillText(icon, node.x, node.y);
+
+                ctx.font = '11px monospace';
+                ctx.fillStyle = node.alive ? '#e2e8f0' : '#64748b';
+                ctx.fillText(node.label, node.x, node.y + 34);
+            });
+
+            requestAnimationFrame(renderSim);
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        function toggleFaq(elem) {
+            elem.parentElement.classList.toggle('open');
+        }
+
+        function copyCode(elemId) {
+            const text = document.getElementById(elemId).innerText;
+            navigator.clipboard.writeText(text).then(() => showToast());
+        }
+
+        function copyDirect(text) {
+            navigator.clipboard.writeText(text).then(() => showToast());
+        }
+
+        function showToast(msg = 'Copié dans le presse-papier !') {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2200);
+        }
+
+        function downloadDeployScript() {
+            let script = `#!/usr/bin/env bash\n# SwarmGlu — Déploiement Essaim (${currentArchetype})\nset -e\n`;
+            if (currentArchetype === 'android') {
+                script += `# Essaim 100% Android : le déploiement se fait directement sur les téléphones via l'application SwarmGlu.\n`;
+                script += `# 1. Allumez le hotspot sur le téléphone 1 (192.168.43.1).\n`;
+                script += `# 2. Connectez les téléphones élèves.\n`;
+            } else {
+                script += `python3 cli.py whitelist init --nodes pc-1,pc-2\n`;
+                script += `python3 cli.py serve --node-id pc-1 --port 7001 --mode full &\n`;
+            }
+            downloadFile(script, 'deploy_essaim.sh', 'text/x-sh');
+        }
+
+        function downloadWhitelistJson() {
+            let nodes = ['tel-prof'];
+            for (let i = 1; i <= config.androidCount; i++) nodes.push(`tel-eleve-${i}`);
+            const content = JSON.stringify({ created_at: new Date().toISOString(), version: 1, allowed_nodes: nodes }, null, 2);
+            downloadFile(content, 'whitelist.json', 'application/json');
+        }
+
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast(`Fichier ${filename} téléchargé !`);
+        }
+
+        setInterval(() => {
+            if (simLeaderId && Math.random() > 0.4) simTriggerBeat();
+        }, 3500);
+
+        window.addEventListener('load', () => {
+            selectArchetype('android');
+            renderSim();
+        });
+    </script>
+</body>
+</html>

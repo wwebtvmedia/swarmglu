@@ -1,5 +1,30 @@
 # Changelog — SwarmGlu Android (com.tree4five.swarmglu)
 
+## 2.0.3 (versionCode 9) — robustesse Android & préparation AAB Google Play
+
+- **ROBUSTESSE CONSENSUS** : immunité contre l'auto-démission du leader sur
+  battement réflexif (miroir du correctif Python) et exclusion de l'adresse
+  propre lors de l'envoi de `/leader-announce`.
+- **COREBRIDGE FIABILISÉ** : élimination des NPE (`p ?: err!!`), capture
+  systématique des exceptions réseau sur tous les appels d'arrière-plan
+  (`status`, `ask`, `auditVerify`, `auditTail`, `agentTask`, `agentTaskValidate`).
+- **AFFICHAGE DES RÉSULTATS & UI** :
+  - `AskFragment` : extraction robuste des réponses (champs `answer`,
+    `result`, `response`, `output` ou objet JSON), affichage conditionnel propre
+    des modèles/fournisseurs et du verdict OSP v0.6.
+  - `AuditFragment` : affichage fidèle des rapports d'audit corrompus ou
+    échoués (`audit_ko`), gestion d'erreur dédiée sur les événements récents,
+    désactivation temporaire des boutons pour éviter les requêtes concurrentes.
+  - `DashboardFragment` : réinitialisation visuelle complète de l'état
+    lorsque le nœud est arrêté, confirmation et rafraîchissement immédiat
+    du statut après ajout en whitelist.
+  - `HotspotManager` : mémorisation de la réservation active et méthode
+    `arreter()` pour libérer proprement le point d'accès Wi-Fi.
+- **CYCLE DE VIE & ARRÊT PROPRE** : drapeau `actif` sur `NoeudAndroid` et
+  méthode `arreter()` sur `ConsensusManager` pour terminer proprement les
+  boucles d'arrière-plan (`sync`, `consensus`, `gateway`).
+- **PRÉPARATION AAB GOOGLE PLAY** : build AAB release signé prêt pour Play Console.
+
 ## 2.0.0-alpha.1 (versionCode 5) — noyau NATIF Kotlin
 
 - CHAQUOPY/PYTHON RETIRÉS : l'app embarque le noyau SwarmGlu porté en

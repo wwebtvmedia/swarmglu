@@ -17,7 +17,7 @@ humaines (compte Play Console, 25 USD une fois).
 - ✅ Icône adaptative + repli toutes densités (API 24/25).
 - ✅ Visuels de fiche : `google-play/assets/icon-512.png`,
   `feature-graphic-1024x500.png` (régénérables : `make_assets.py`).
-- ✅ `versionCode 6` / `versionName "2.0.0"` — **noyau natif Kotlin**
+- ✅ `versionCode 9` / `versionName "2.0.3"` — **noyau natif Kotlin**
   (plus de Python embarqué), crypto PQ native, fournisseur LLM on-device
   (pont OSP), hotspot/relais, savoir commun. **Signature release + R8
   vérifiés par smoke-test** : `tests/smoke_release_r8.py` installe l'APK

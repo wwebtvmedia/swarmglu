@@ -22,6 +22,8 @@ object HotspotManager {
     @Volatile var actif = false
         private set
 
+    private var reservationActuelle: WifiManager.LocalOnlyHotspotReservation? = null
+
     /** Démarre le hotspot ; callbacks sur le thread appelant. */
     fun demarrer(ctx: Context, onInfo: (String) -> Unit, onError: (String) -> Unit) {
         val appCtx = ctx.applicationContext
@@ -33,6 +35,7 @@ object HotspotManager {
         try {
             wifi.startLocalOnlyHotspot(object : WifiManager.LocalOnlyHotspotCallback() {
                 override fun onStarted(reservation: WifiManager.LocalOnlyHotspotReservation) {
+                    reservationActuelle = reservation
                     actif = true
                     val (ssid, passe) = lireIdentifiants(reservation)
                     onInfo(appCtx.getString(R.string.hotspot_info, ssid, passe))
@@ -40,11 +43,13 @@ object HotspotManager {
 
                 override fun onFailed(reason: Int) {
                     actif = false
+                    reservationActuelle = null
                     onError(appCtx.getString(R.string.hotspot_echec, reason))
                 }
 
                 override fun onStopped() {
                     actif = false
+                    reservationActuelle = null
                     onError(appCtx.getString(R.string.hotspot_arrete))
                 }
             }, null)
@@ -52,6 +57,15 @@ object HotspotManager {
             // Émulateur (pas de Wi-Fi) ou permission manquante.
             onError(e.message ?: appCtx.getString(R.string.hotspot_invalide))
         }
+    }
+
+    /** Arrête le point d'accès Wi-Fi et libère la réservation. */
+    fun arreter() {
+        try {
+            reservationActuelle?.close()
+        } catch (_: Exception) {}
+        reservationActuelle = null
+        actif = false
     }
 
     private fun lireIdentifiants(reservation: WifiManager.LocalOnlyHotspotReservation)

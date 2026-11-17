@@ -63,7 +63,11 @@ object CoreBridge {
 
     fun nodeStop(): JSONObject {
         verrou.withLock {
-            noeud?.arreter()
+            try {
+                noeud?.arreter()
+            } catch (e: Exception) {
+                android.util.Log.e("SwarmGlu", "erreur arrêt nœud", e)
+            }
             noeud = null
         }
         return JSONObject().put("ok", true)
@@ -81,8 +85,12 @@ object CoreBridge {
     fun status(): JSONObject {
         val (n, err) = noeudOuErreur()
         if (n == null) return err!!
-        val (s, p) = n.transport.get("127.0.0.1", n.port, "/status", 5.0)
-        return p ?: err!!
+        val (s, p) = try {
+            n.transport.get("127.0.0.1", n.port, "/status", 5.0)
+        } catch (e: Exception) {
+            0 to null
+        }
+        return p ?: JSONObject().put("error", "nœud inaccessible (HTTP $s)").put("http_status", s)
     }
 
     fun ask(prompt: String, student: String, model: String, swarm: String): JSONObject {
@@ -100,47 +108,67 @@ object CoreBridge {
             return JSONObject().put("error", "échec de communication : $e")
                 .put("http_status", 0)
         }
-        return (p ?: JSONObject()).put("http_status", s)
+        return (p ?: JSONObject().put("error", "réponse vide du nœud (HTTP $s)")).put("http_status", s)
     }
 
     fun auditVerify(): JSONObject {
         val (n, err) = noeudOuErreur()
         if (n == null) return err!!
-        val (s, p) = n.transport.get("127.0.0.1", n.port, "/audit/verify", 5.0)
-        return p ?: err!!
+        val (s, p) = try {
+            n.transport.get("127.0.0.1", n.port, "/audit/verify", 5.0)
+        } catch (e: Exception) {
+            0 to null
+        }
+        return p ?: JSONObject().put("error", "audit inaccessible (HTTP $s)").put("http_status", s)
     }
 
     fun auditTail(nb: Int): JSONObject {
         val (n, err) = noeudOuErreur()
         if (n == null) return err!!
-        val (s, p) = n.transport.get("127.0.0.1", n.port, "/audit/tail?n=$nb", 5.0)
-        return p ?: err!!
+        val (s, p) = try {
+            n.transport.get("127.0.0.1", n.port, "/audit/tail?n=$nb", 5.0)
+        } catch (e: Exception) {
+            0 to null
+        }
+        return p ?: JSONObject().put("error", "journal inaccessible (HTTP $s)").put("http_status", s)
     }
 
     fun agentTask(bodyJson: String): JSONObject {
         val (n, err) = noeudOuErreur()
         if (n == null) return err!!
-        val (s, p) = n.transport.post("127.0.0.1", n.port, "/agent/task",
-            JSONObject(bodyJson), 15.0)
-        return (p ?: JSONObject()).put("http_status", s)
+        val (s, p) = try {
+            n.transport.post("127.0.0.1", n.port, "/agent/task",
+                JSONObject(bodyJson), 15.0)
+        } catch (e: Exception) {
+            0 to null
+        }
+        return (p ?: JSONObject().put("error", "échec de communication (HTTP $s)")).put("http_status", s)
     }
 
     fun agentTaskValidate(taskId: String, approved: Boolean, by: String): JSONObject {
         val (n, err) = noeudOuErreur()
         if (n == null) return err!!
-        val (s, p) = n.transport.post("127.0.0.1", n.port,
-            "/agent/task/$taskId/validate",
-            JSONObject().put("approved", approved).put("by", by), 30.0)
-        return (p ?: JSONObject()).put("http_status", s)
+        val (s, p) = try {
+            n.transport.post("127.0.0.1", n.port,
+                "/agent/task/$taskId/validate",
+                JSONObject().put("approved", approved).put("by", by), 30.0)
+        } catch (e: Exception) {
+            0 to null
+        }
+        return (p ?: JSONObject().put("error", "échec de communication (HTTP $s)")).put("http_status", s)
     }
 
     fun whitelistAdd(nodeId: String): JSONObject {
         val (n, err) = noeudOuErreur()
         if (n == null) return err!!
-        val ajoute = n.whitelist.ajouter(nodeId, "android-admin")
-        n.etat.setWhitelistNodes(n.whitelist.noeuds())
-        return JSONObject().put("ok", true).put("added", ajoute)
-            .put("nodes", JSONArray(n.whitelist.noeuds()))
+        return try {
+            val ajoute = n.whitelist.ajouter(nodeId, "android-admin")
+            n.etat.setWhitelistNodes(n.whitelist.noeuds())
+            JSONObject().put("ok", true).put("added", ajoute)
+                .put("nodes", JSONArray(n.whitelist.noeuds()))
+        } catch (e: Exception) {
+            JSONObject().put("ok", false).put("error", "$e")
+        }
     }
 
     @Volatile var appContext: android.content.Context? = null

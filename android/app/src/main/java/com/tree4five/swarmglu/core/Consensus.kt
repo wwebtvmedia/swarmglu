@@ -45,10 +45,18 @@ class ConsensusManager(
 
     fun cleStr(): String = "%010d|%s".format(cle.first, cle.second)
 
+    @Volatile private var tourne = false
+
     fun demarrer() {
+        tourne = true
         thread(name = "consensus", isDaemon = true) {
-            while (true) {
-                Thread.sleep((config.tick * 1000).toLong())
+            while (tourne) {
+                try {
+                    Thread.sleep((config.tick * 1000).toLong())
+                } catch (_: InterruptedException) {
+                    return@thread
+                }
+                if (!tourne) break
                 try {
                     val maintenant = System.currentTimeMillis() / 1000.0
                     if (role == Role.LEADER) tickLeader(maintenant) else tickFollower(maintenant)
@@ -58,6 +66,10 @@ class ConsensusManager(
                 }
             }
         }
+    }
+
+    fun arreter() {
+        tourne = false
     }
 
     // ------------------------------------------------------------------
@@ -234,11 +246,14 @@ class ConsensusManager(
         chaine.ajouter("leader_elected", nodeId, JSONObject()
             .put("leader", nodeId).put("epoch", epoch).put("trigger", declencheur))
         val corps = messageLeader()
+        val myIp = identite.optString("ip")
+        val myPort = identite.optInt("port", 0)
         for (id in cles(etat.pairs())) {
             val p = etat.pairs().getJSONObject(id)
             if (id == nodeId) continue
             val ip = p.optString("ip"); val port = p.optInt("port", 0)
             if (ip.isEmpty() || port == 0) continue
+            if (ip == myIp && port == myPort) continue
             transport.post(ip, port, "/leader-announce", corps, 2.0)
         }
     }
@@ -262,7 +277,7 @@ class ConsensusManager(
 
     private fun adopterLeader(msg: JSONObject) {
         val id = msg.optString("leader_id")
-        if (id.isEmpty()) return
+        if (id.isEmpty() || id == nodeId) return
         val ip = msg.optString("ip"); val port = msg.optInt("port", 0)
         val change = (leaderId != id) || (msg.optInt("epoch", 0) > epoch) || role != Role.FOLLOWER
         role = Role.FOLLOWER
@@ -392,7 +407,10 @@ class ConsensusManager(
         val id = corps.optString("leader_id")
         if (id.isEmpty() || etat.whitelist?.estAutorise(id) == false)
             return 403 to JSONObject().put("error", "leader non whitelisté")
-        if (role == Role.LEADER && id != nodeId) {
+        if (id == nodeId) {
+            return 200 to JSONObject().put("ok", true).put("self", true)
+        }
+        if (role == Role.LEADER) {
             val e = corps.optInt("epoch", 0)
             if (e > epoch || (e == epoch && corps.optString("key") < cleStr())) {
                 abdiquer(corps); return 200 to JSONObject().put("ok", true).put("stood_down", true)
@@ -454,7 +472,6 @@ class HttpJson {
             cnx.readTimeout = (delai * 1000).toInt()
             cnx.doOutput = corps != null
             cnx.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            for ((k, v) in enTetes) cnx.setRequestProperty(k, v)
             for ((k, v) in enTetes) cnx.setRequestProperty(k, v)
             if (corps != null) cnx.outputStream.use { it.write(corps.toString().toByteArray()) }
             val reponse = try {

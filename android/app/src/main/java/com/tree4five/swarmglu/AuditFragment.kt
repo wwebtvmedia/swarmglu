@@ -24,19 +24,41 @@ class AuditFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val out = view.findViewById<TextView>(R.id.tv_audit_out)
+        val btnVerify = view.findViewById<Button>(R.id.btn_verify)
+        val btnTail = view.findViewById<Button>(R.id.btn_tail)
 
-        view.findViewById<Button>(R.id.btn_verify).setOnClickListener {
+        btnVerify.setOnClickListener {
             out.text = getString(R.string.audit_running)
+            btnVerify.isEnabled = false
+            btnTail.isEnabled = false
             CoreBridge.onBackground({ CoreBridge.auditVerify() },
-                onError = { e -> afficherErreur(out, e) }
-            ) { render(it, out) }
+                onError = { e ->
+                    btnVerify.isEnabled = true
+                    btnTail.isEnabled = true
+                    afficherErreur(out, e)
+                }
+            ) {
+                btnVerify.isEnabled = true
+                btnTail.isEnabled = true
+                render(it, out)
+            }
         }
 
-        view.findViewById<Button>(R.id.btn_tail).setOnClickListener {
+        btnTail.setOnClickListener {
             out.text = getString(R.string.audit_running)
+            btnVerify.isEnabled = false
+            btnTail.isEnabled = false
             CoreBridge.onBackground({ CoreBridge.auditTail(20) },
-                onError = { e -> afficherErreur(out, e) }
-            ) { renderTail(it, out) }
+                onError = { e ->
+                    btnVerify.isEnabled = true
+                    btnTail.isEnabled = true
+                    afficherErreur(out, e)
+                }
+            ) {
+                btnVerify.isEnabled = true
+                btnTail.isEnabled = true
+                renderTail(it, out)
+            }
         }
     }
 
@@ -48,8 +70,9 @@ class AuditFragment : Fragment() {
     }
 
     private fun render(report: JSONObject, out: TextView) {
-        if (report.has("error")) {
+        if (!report.has("ok") && report.has("error")) {
             out.text = getString(R.string.audit_node_off)
+            out.setTextColor(Color.rgb(198, 40, 40))
             return
         }
         val ok = report.optBoolean("ok")
@@ -64,16 +87,26 @@ class AuditFragment : Fragment() {
             getString(
                 R.string.audit_ko,
                 report.optInt("line", -1),
-                report.optString("error")
+                report.optString("error", "erreur de vérification")
             )
         }
         out.setTextColor(if (ok) Color.rgb(46, 125, 50) else Color.rgb(198, 40, 40))
     }
 
     private fun renderTail(reply: JSONObject, out: TextView) {
+        if (reply.has("error")) {
+            out.text = if (!reply.has("ok") && reply.optString("error").contains("non démarré")) {
+                getString(R.string.audit_node_off)
+            } else {
+                reply.optString("error")
+            }
+            out.setTextColor(Color.rgb(198, 40, 40))
+            return
+        }
         val events = reply.optJSONArray("events")
         if (events == null || events.length() == 0) {
             out.text = getString(R.string.audit_empty)
+            out.setTextColor(Color.DKGRAY)
             return
         }
         val sb = StringBuilder()
@@ -87,7 +120,7 @@ class AuditFragment : Fragment() {
                 ev.optString("node_id"),
                 b.optDouble("processing_time")))
         }
-        out.text = sb
+        out.text = sb.toString()
         out.setTextColor(Color.DKGRAY)
     }
 }

@@ -81,26 +81,53 @@ class AskFragment : Fragment() {
             )
             return
         }
-        val osp = reply.optJSONObject("osp") ?: JSONObject()
-        val verified = osp.optBoolean("rag_eligible")
-        val sb = StringBuilder()
-            .append(reply.optString("answer")).append("\n\n")
-            .append("— ").append(reply.optString("model"))
-            .append("  (fournisseur : ").append(reply.optString("provider"))
-            .append(")\n")
+
+        // Récupérer la réponse / résultat sous toutes ses formes (answer, result, response, text)
+        val resultat = reply.optString("answer").ifEmpty {
+            reply.optString("result").ifEmpty {
+                reply.optString("response").ifEmpty {
+                    reply.optString("output").ifEmpty {
+                        val obj = reply.opt("result") ?: reply.opt("task")
+                        obj?.toString() ?: ""
+                    }
+                }
+            }
+        }.ifEmpty { reply.toString() }
+
+        val sb = StringBuilder().append(resultat)
+
+        val modele = reply.optString("model")
+        val fournisseur = reply.optString("provider")
+        if (modele.isNotEmpty() || fournisseur.isNotEmpty()) {
+            sb.append("\n\n— ").append(modele.ifEmpty { "modèle local" })
+            if (fournisseur.isNotEmpty()) {
+                sb.append("  (fournisseur : ").append(fournisseur).append(")")
+            }
+            sb.append('\n')
+        }
 
         val sources = reply.optJSONArray("sources")
         if (sources != null && sources.length() > 0) {
-            sb.append(getString(R.string.ask_sources)).append('\n')
+            if (!sb.endsWith("\n")) sb.append('\n')
+            sb.append('\n').append(getString(R.string.ask_sources)).append('\n')
             for (i in 0 until sources.length()) {
                 sb.append("  • ").append(sources.optString(i)).append('\n')
             }
         }
 
-        // Verdict OSP : couleur + explication pédagogique du pare-feu.
-        sb.append('\n').append("OSP v0.6 : g = ").append(osp.optDouble("groundedness"))
-            .append("  →  ").append(osp.optString("verdict"))
-        out.text = sb.toString()
+        // Verdict OSP : couleur + explication pédagogique du pare-feu (si présent).
+        val osp = reply.optJSONObject("osp")
+        val verified: Boolean
+        if (osp != null && (osp.has("verdict") || osp.has("groundedness"))) {
+            verified = osp.optBoolean("rag_eligible", true)
+            if (!sb.endsWith("\n")) sb.append('\n')
+            sb.append('\n').append("OSP v0.6 : g = ").append(osp.optDouble("groundedness"))
+                .append("  →  ").append(osp.optString("verdict"))
+        } else {
+            verified = true
+        }
+
+        out.text = sb.toString().trim()
         out.setTypeface(null, Typeface.NORMAL)
         out.setTextColor(
             if (verified) Color.rgb(46, 125, 50) else Color.rgb(198, 40, 40)

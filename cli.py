@@ -499,6 +499,42 @@ def cmd_demo(args: argparse.Namespace) -> int:
                 proc.kill()
 
 
+def cmd_web(args) -> int:
+    import http.server
+    import socketserver
+    import webbrowser
+
+    web_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+    if not os.path.isdir(web_dir):
+        print("Erreur: répertoire 'web' introuvable.", file=sys.stderr)
+        return 1
+
+    port = args.port
+
+    class CustomHandler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, directory=web_dir, **kw)
+
+    try:
+        with socketserver.TCPServer(("", port), CustomHandler) as httpd:
+            url = f"http://127.0.0.1:{port}"
+            print(f"\n🐝 Assistant Web d'installation SwarmGlu actif sur : {url}")
+            print("Appuyez sur Ctrl+C pour quitter le serveur web.\n")
+            if not getattr(args, "no_browser", False):
+                try:
+                    webbrowser.open(url)
+                except Exception:
+                    pass
+            try:
+                httpd.serve_forever()
+            except KeyboardInterrupt:
+                print("\nArrêt du serveur web.")
+        return 0
+    except OSError as e:
+        print(f"Erreur d'écoute sur le port {port} : {e}", file=sys.stderr)
+        return 1
+
+
 # ---------------------------------------------------------------------------
 # Analyse des arguments
 # ---------------------------------------------------------------------------
@@ -606,6 +642,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--lease", type=float, default=2.0,
                    help="bail accéléré pour la démo (défaut 2s)")
     p.set_defaults(func=cmd_demo)
+
+    # -- web ----------------------------------------------------------------
+    p = sub.add_parser("web", help="lance le site web assistant d'installation d'essaim")
+    p.add_argument("--port", type=int, default=8080, help="port HTTP (défaut 8080)")
+    p.add_argument("--no-browser", action="store_true", help="ne pas ouvrir le navigateur automatiquement")
+    p.set_defaults(func=cmd_web)
 
     return parser
 
